@@ -1,0 +1,13 @@
+.header {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background-color: orange;
+  color: white;
+  padding: 20px 0;
+}
+
+.header span{
+  font-size: 40px;
+  font-weight: bold;
+}
