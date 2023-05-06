@@ -9,7 +9,6 @@ import {
 import { getDatabase, ref, set, onValue, remove, off } from 'firebase/database';
 import axios from 'axios';
 
-
 const firebaseConfig = {
 	apiKey: process.env.REACT_APP_APIKEY,
 	authDomain: `${process.env.REACT_APP_PROJECT_ID}.firebaseapp.com`,
@@ -27,8 +26,19 @@ export class FirebaseService {
 	checkLoginState = (setLoginState) => {
 		const myAuth = getAuth();
 		onAuthStateChanged(myAuth, (user) => {
-			console.log('check Login');
-			if (user) setLoginState(user);
+			console.log('check Login', user);
+			if (user){
+				const { uid, email, photoURL } = user;
+				console.log("services: ", uid);
+				setLoginState({
+					state: true,
+					user: {
+						uid,
+						email,
+						profile: photoURL,
+					},
+				});
+			}
 		});
 	};
 
@@ -72,6 +82,7 @@ export class FirebaseService {
 			return true;
 		} catch (error) {
 			console.log(error);
+			return false;
 		}
 	};
 }

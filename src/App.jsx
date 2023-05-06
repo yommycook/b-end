@@ -14,7 +14,7 @@ const App = ({FireBaseAuth}) => {
         <Header isLogin={isLogin} />
         <Routes>
           <Route path="/" exact={true} element={<Login setLogin={setLogin} FireBaseAuth={FireBaseAuth} isLogin={isLogin}/>} />
-          <Route path="/main" exact={true} element={<Main />} />
+          <Route path="/main" exact={true} element={<Main setLogin={setLogin} FireBaseAuth={FireBaseAuth} isLogin={isLogin} />} />
         </Routes>
       </div>
       </BrowserRouter>)
