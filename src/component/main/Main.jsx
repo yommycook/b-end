@@ -8,7 +8,7 @@ const Main = ({setLogin, FireBaseAuth, isLogin}) => {
     if(!isLogin.state){
       navigate("/");
     }
-  }, [isLogin]);
+  }, [isLogin, setLogin, FireBaseAuth, navigate]);
 
   const onSignOut = async () => {
     const signOut = await FireBaseAuth.signOut();

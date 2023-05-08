@@ -7,7 +7,7 @@ const Header = ({isLogin}) => {
     if(!isLogin.state){
       navigate("/");
     }
-  }, [isLogin])
+  }, [isLogin, navigate])
   return (
     <div className={Styles.header}>
       <span>Yummy</span>
