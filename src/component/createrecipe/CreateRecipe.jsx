@@ -1,18 +1,37 @@
 import React, { useRef, useState } from 'react';
 import Styles from './createrecipe.module.css';
 
-const Order = () => {
-	const inputRef = useRef();
+const Order = ({ step, des, picture, onInput }) => {
+	const [loading, setLoading] = useState(false);
+	const desRef = useRef();
+	const pictureRef = useRef();
 
 	const onBtnClick = (e) => {
 		e.preventDefault();
-		inputRef.current.click();
+		pictureRef.current.click();
+	};
+
+	const onOrderInput = () => {
+		const desVal = desRef.current.value;
+		onInput(step, desVal, picture);
+	};
+
+	const onFileInput = async (e) => {
+		setLoading(true);
+		const files = pictureRef.current.files;
+		console.log(files);
+		// await onFileChange(files);
+		// onFileChange(e)
+		setLoading(false);
 	};
 
 	return (
 		<div className='order'>
-			<div className='order__num'>1 단계</div>
+			<div className='order__num'>{step} 단계</div>
 			<textarea
+				value={des}
+				onInput={onOrderInput}
+				ref={desRef}
 				name='des'
 				id='des'
 				cols='30'
@@ -23,25 +42,42 @@ const Order = () => {
 				<button onClick={onBtnClick} className='file__input'>
 					사진추가(img)
 				</button>
-				<input type='file' accept='image/*' ref={inputRef} />
+				<input
+					onChange={onFileInput}
+					type='file'
+					accept='image/*'
+					ref={pictureRef}
+				/>
 			</div>
 		</div>
 	);
 };
 
-const Ing = ({index, onInput, name, unit}) => {
-  const nameRef = useRef();
-  const unitRef = useRef();
+const Ing = ({ index, onInput, name, unit }) => {
+	const nameRef = useRef();
+	const unitRef = useRef();
 
-  const onIngInput = () => {
-    const nameVal = nameRef.current.value;
-    const unitVal = unitRef.current.value;
-    onInput(index, nameVal, unitVal);
-  }
+	const onIngInput = () => {
+		const nameVal = nameRef.current.value;
+		const unitVal = unitRef.current.value;
+		onInput(index, nameVal, unitVal);
+	};
 	return (
 		<div className='ing'>
-			<input value={name} onInput={onIngInput} ref={nameRef} type='text' placeholder='재료이름' />
-			<input value={unit} onInput={onIngInput} ref={unitRef}type='text' placeholder='단위 예) 300g, 1/2개' />
+			<input
+				value={name}
+				onInput={onIngInput}
+				ref={nameRef}
+				type='text'
+				placeholder='재료이름'
+			/>
+			<input
+				value={unit}
+				onInput={onIngInput}
+				ref={unitRef}
+				type='text'
+				placeholder='단위 예) 300g, 1/2개'
+			/>
 		</div>
 	);
 };
@@ -72,6 +108,53 @@ const CreateRecipe = () => {
 		{ name: '감자', unit: '300g 또는 1/2개' },
 	]);
 
+	const [orders, setOrders] = useState({
+		1: {
+			des: '',
+			picture: null,
+		},
+	});
+
+	// setState -> 각 정보의 input에 대해 setState 호출
+
+	const onOrderInput = (step, des, picture) => {
+		const newOrder = {};
+		Object.keys(orders).forEach((stp) => {
+			newOrder[`${stp}`] = { ...orders[`${stp}`] };
+		});
+		newOrder[`${step}`] = {
+			des,
+			picture,
+		};
+		console.log(newOrder);
+		setOrders(newOrder);
+	};
+
+	const onOrderAdd = () => {
+		const newStep = Object.keys(orders).length + 1;
+		const newOrder = {};
+		Object.keys(orders).forEach((stp) => {
+			newOrder[`${stp}`] = { ...orders[`${stp}`] };
+		});
+		newOrder[`${newStep}`] = {
+			des: '',
+			picture: null,
+		};
+		setOrders(newOrder);
+	};
+
+	const onOrderRm = () => {
+		const rmStep = Object.keys(orders).length;
+		const newOrder = {};
+		Object.keys(orders).forEach((stp) => {
+			if (Number(stp) === rmStep) return;
+      else {
+        newOrder[`${stp}`] = { ...orders[`${stp}`] };
+      }
+		});
+    console.log(newOrder);
+		setOrders(newOrder);
+	};
 
 	const onOverviewInput = () => {
 		const titleVal = titleRef.current.value;
@@ -101,33 +184,33 @@ const CreateRecipe = () => {
 			};
 		});
 
-    const newIngOrder = {name, unit};
-    newIng[index] = newIngOrder;
-    console.log(newIng);
-    setIngredients(newIng);
+		const newIngOrder = { name, unit };
+		newIng[index] = newIngOrder;
+		console.log(newIng);
+		setIngredients(newIng);
 	};
 
-  const onIngredientsAdd = () => {
-    const newIng = ingredients.map((v) => {
+	const onIngredientsAdd = () => {
+		const newIng = ingredients.map((v) => {
 			return {
 				name: v.name,
 				unit: v.unit,
 			};
-		}); 
-    newIng.push({ name: '감자', unit: '300g 또는 1/2개' });
-    setIngredients(newIng); 
-  }
+		});
+		newIng.push({ name: '감자', unit: '300g 또는 1/2개' });
+		setIngredients(newIng);
+	};
 
-  const onIngredientsRm = () => {
-    const newIng = ingredients.map((v) => {
+	const onIngredientsRm = () => {
+		const newIng = ingredients.map((v) => {
 			return {
 				name: v.name,
 				unit: v.unit,
 			};
-		}); 
-    newIng.pop();
-    setIngredients(newIng); 
-  }
+		});
+		newIng.pop();
+		setIngredients(newIng);
+	};
 
 	return (
 		<div className='container'>
@@ -217,27 +300,53 @@ const CreateRecipe = () => {
 					</div>
 					<div className='ingredient__collection'>
 						{ingredients.map((v, index) => {
-              const ingname = ingredients[index].name;
-              const ingunit = ingredients[index].unit;
-              console.log(ingunit)
-							return <Ing key={index} index={index} onInput={onIngredientsInput} name={ingname} unit={ingunit} />;
+							const ingname = ingredients[index].name;
+							const ingunit = ingredients[index].unit;
+							console.log(ingunit);
+							return (
+								<Ing
+									key={index}
+									index={index}
+									onInput={onIngredientsInput}
+									name={ingname}
+									unit={ingunit}
+								/>
+							);
 						})}
 					</div>
 					<div className='ing__addbtn' onClick={onIngredientsAdd}>
 						<div className='btnimg'>+</div>
 						<span>추가</span>
 					</div>
-          <div className='ing__rmbtn' onClick={onIngredientsRm}>
+					<div className='ing__rmbtn' onClick={onIngredientsRm}>
 						<div className='btnimg'>-</div>
 						<span>제거</span>
 					</div>
 				</div>
 				<div className='order'>
 					<div className='order__title'>요리순서</div>
-					<Order />
-					<div className='order__addbtn'>
+					{Object.keys(orders).map((v, index) => {
+						const step = v;
+						const des = orders[`${v}`].des;
+						const picture = orders[`${v}`].picture;
+						return (
+							<Order
+								key={index}
+								step={step}
+								des={des}
+								picture={picture}
+								onInput={onOrderInput}
+							/>
+						);
+					})}
+
+					<div onClick={onOrderAdd} className='order__addbtn'>
 						<div className='btnimg'>+</div>
 						<span>추가</span>
+					</div>
+					<div onClick={onOrderRm} className='order__rmbtn'>
+						<div className='btnimg'>+</div>
+						<span>제거</span>
 					</div>
 				</div>
 				<button className='submit'>등록하기</button>
