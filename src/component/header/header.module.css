@@ -2,12 +2,33 @@
   display: flex;
   justify-content: center;
   align-items: center;
-  background-color: orange;
-  color: white;
+  background-color: white;
   padding: 20px 0;
 }
 
 .header span{
+  color: #ff6c37;
   font-size: 40px;
   font-weight: bold;
+  width: 33%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.header div {
+  width: 33%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.loginBtn {
+  box-shadow:none;
+  padding: 10px 10px;
+  background-color: #ff6c37;
+  color: white;
+  border:none;
+  border-radius: 3px;
+  cursor: pointer
 }

@@ -1,9 +1,11 @@
 import React, {useState} from 'react';
+import { BrowserRouter, Route, Routes } from "react-router-dom";
 import './App.css';
 import Main from './component/main/Main';
 import Login from './component/login/Login';
 import Header from './component/header/Header';
-import { BrowserRouter, Route, Routes } from "react-router-dom";
+import Navbar from './component/navbar/Navbar';
+import CreateRecipe from './component/createrecipe/CreateRecipe';
 const App = ({FireBaseAuth}) => {
   const [isLogin, setLogin] = useState({
     state: false
@@ -11,10 +13,12 @@ const App = ({FireBaseAuth}) => {
   return (
     (<BrowserRouter>
       <div className={`main`}>
-        <Header isLogin={isLogin} />
+        <Header isLogin={isLogin} setLogin={setLogin} FireBaseAuth={FireBaseAuth} />
+        <Navbar />
         <Routes>
-          <Route path="/" exact={true} element={<Login setLogin={setLogin} FireBaseAuth={FireBaseAuth} isLogin={isLogin}/>} />
-          <Route path="/main" exact={true} element={<Main setLogin={setLogin} FireBaseAuth={FireBaseAuth} isLogin={isLogin} />} />
+          <Route path="/" exact={true} element={<Login isLogin={isLogin}/>} />
+          <Route path="/main" exact={true} element={<Main isLogin={isLogin} />} />
+          <Route path="/create" exact={true} element={<CreateRecipe />} />
         </Routes>
       </div>
       </BrowserRouter>)

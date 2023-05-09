@@ -7,9 +7,8 @@ import {
 	onAuthStateChanged,
 } from 'firebase/auth';
 
-/** for DB - TO DO */
-// import { getDatabase, ref, set, onValue, remove, off } from 'firebase/database';
-// import axios from 'axios';
+import { getDatabase, ref, set, onValue, remove, off } from 'firebase/database';
+import axios from 'axios';
 
 const firebaseConfig = {
 	apiKey: process.env.REACT_APP_APIKEY,
