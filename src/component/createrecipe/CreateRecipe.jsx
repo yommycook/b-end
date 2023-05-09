@@ -1,7 +1,7 @@
 import React, { useRef, useState } from 'react';
 import Styles from './createrecipe.module.css';
 
-const Order = ({ step, des, picture, onInput }) => {
+const Order = ({ step, des, picture, onInput, Cloudinary }) => {
 	const [loading, setLoading] = useState(false);
 	const desRef = useRef();
 	const pictureRef = useRef();
@@ -16,12 +16,20 @@ const Order = ({ step, des, picture, onInput }) => {
 		onInput(step, desVal, picture);
 	};
 
+	const onPictureChange = (url) => {
+		const desVal = desRef.current.value;
+		onInput(step, desVal, url);
+	};
+
 	const onFileInput = async (e) => {
 		setLoading(true);
 		const files = pictureRef.current.files;
 		console.log(files);
-		// await onFileChange(files);
+		const fileData = await Cloudinary.uploadFile(files);
+		const pictureUrl = fileData.url;
+		console.log(pictureUrl);
 		// onFileChange(e)
+		onPictureChange(pictureUrl);
 		setLoading(false);
 	};
 
@@ -39,9 +47,20 @@ const Order = ({ step, des, picture, onInput }) => {
 				placeholder='예) 소고기는 기름기를 떼어내고 적당한 크기로 썰어주세요.'
 			></textarea>
 			<div className={Styles.filebtn}>
-				<button onClick={onBtnClick} className='file__input'>
-					사진추가(img)
-				</button>
+				{loading ? (
+					<div className={Styles.loading}> </div>
+				) : (
+					<button onClick={onBtnClick} className={Styles.file__btn} >
+						{picture ? (
+							<img className={Styles.orderImg} alt='orderImg' src={picture} />
+						) : (
+							<div className={Styles.file__input}>
+                <img src="http://res.cloudinary.com/dfvqmpyji/image/upload/v1683640174/uploads/tynufauekqrukjhq8zn1.png" alt="defimg" />
+              </div>
+						)}
+					</button>
+				)}
+
 				<input
 					onChange={onFileInput}
 					type='file'
@@ -83,7 +102,7 @@ const Ing = ({ index, onInput, name, unit }) => {
 };
 
 // CreateRecipe
-const CreateRecipe = () => {
+const CreateRecipe = ({ Cloudinary }) => {
 	// useRef -> 레시피 input정보 참조
 	const titleRef = useRef();
 	const introductionRef = useRef();
@@ -148,11 +167,11 @@ const CreateRecipe = () => {
 		const newOrder = {};
 		Object.keys(orders).forEach((stp) => {
 			if (Number(stp) === rmStep) return;
-      else {
-        newOrder[`${stp}`] = { ...orders[`${stp}`] };
-      }
+			else {
+				newOrder[`${stp}`] = { ...orders[`${stp}`] };
+			}
 		});
-    console.log(newOrder);
+		console.log(newOrder);
 		setOrders(newOrder);
 	};
 
@@ -336,6 +355,7 @@ const CreateRecipe = () => {
 								des={des}
 								picture={picture}
 								onInput={onOrderInput}
+								Cloudinary={Cloudinary}
 							/>
 						);
 					})}

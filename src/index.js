@@ -1,12 +1,14 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
-import { FirebaseService } from './services';
+import { FirebaseService, cloudinaryService } from './services';
 
 const FireBaseAuth = new FirebaseService();
+const Cloudinary = new cloudinaryService();
+
 
 
 const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(
-		<App FireBaseAuth={FireBaseAuth}/>
+		<App Cloudinary={Cloudinary} FireBaseAuth={FireBaseAuth}/>
 );

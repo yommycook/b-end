@@ -6,7 +6,8 @@ import Login from './component/login/Login';
 import Header from './component/header/Header';
 import Navbar from './component/navbar/Navbar';
 import CreateRecipe from './component/createrecipe/CreateRecipe';
-const App = ({FireBaseAuth}) => {
+
+const App = ({Cloudinary, FireBaseAuth}) => {
   const [isLogin, setLogin] = useState({
     state: false
   })
@@ -18,7 +19,7 @@ const App = ({FireBaseAuth}) => {
         <Routes>
           <Route path="/" exact={true} element={<Login isLogin={isLogin}/>} />
           <Route path="/main" exact={true} element={<Main isLogin={isLogin} />} />
-          <Route path="/create" exact={true} element={<CreateRecipe />} />
+          <Route path="/create" exact={true} element={<CreateRecipe Cloudinary={Cloudinary} />} />
         </Routes>
       </div>
       </BrowserRouter>)
