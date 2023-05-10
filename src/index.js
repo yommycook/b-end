@@ -1,11 +1,14 @@
-import express from "express"
+import React from 'react';
+import ReactDOM from 'react-dom/client';
+import App from './App';
+import { FirebaseService, cloudinaryService } from './services';
 
-const app = express();
-const PORT = 3000;
+const FireBaseAuth = new FirebaseService();
+const Cloudinary = new cloudinaryService();
 
-app.listen(PORT, (e) => {
-  if(e) console.log
-  else {
-    console.log(`app listening PORT - ${PORT}`);
-  }
-});
+
+
+const root = ReactDOM.createRoot(document.getElementById('root'));
+root.render(
+		<App Cloudinary={Cloudinary} FireBaseAuth={FireBaseAuth}/>
+);
