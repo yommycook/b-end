@@ -59,6 +59,7 @@ export class FirebaseService {
 			const token = credential.accessToken;
 			// The signed-in user info.
 			const user = result.user;
+
 			return {
 				type: 'success',
 				token,
@@ -112,7 +113,7 @@ export class cloudinaryService {
 			data: formdata,
 		});
 		console.log(fileRes);
-
+		
 		return fileRes.data;
 	};
 }
