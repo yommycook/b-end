@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import Styles from './createrecipe.module.css';
 
 const Order = ({ step, des, picture, onInput, Cloudinary }) => {
@@ -102,7 +102,8 @@ const Ing = ({ index, onInput, name, unit }) => {
 };
 
 // CreateRecipe
-const CreateRecipe = ({ Cloudinary }) => {
+const CreateRecipe = ({ Cloudinary, DBService }) => {
+
 	// useRef -> 레시피 input정보 참조
 	const titleRef = useRef();
 	const introductionRef = useRef();
@@ -230,6 +231,11 @@ const CreateRecipe = ({ Cloudinary }) => {
 		newIng.pop();
 		setIngredients(newIng);
 	};
+
+	const onCreateRecipe = async () => {
+		await DBService.createRecipe();
+		console.log("recipe Created");
+	}
 
 	return (
 		<div className='container'>
@@ -369,7 +375,7 @@ const CreateRecipe = ({ Cloudinary }) => {
 						<span>제거</span>
 					</div>
 				</div>
-				<button className='submit'>등록하기</button>
+				<button className='submit' onClick={onCreateRecipe}>등록하기</button>
 			</div>
 		</div>
 	);
