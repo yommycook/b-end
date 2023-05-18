@@ -12,6 +12,10 @@ import {
 	setDoc,
 	addDoc,
 	collection,
+	query,
+	where,
+	getDocs,
+	getDoc,
 } from 'firebase/firestore';
 import axios from 'axios';
 
@@ -105,38 +109,83 @@ export class FirebaseService {
 // DB Service
 
 export class FirebaseDBService {
-	createRecipe = async () => {
-		const R_id = "R" + Date.now();
+	/* createRecipe 
+	 input - recipeData: Object
+	 output - true | error (if error)
+	 des - to add Recipe data into DB with createdAt and UId
+	 */
+	createRecipe = async (recipe) => {
+		const R_id = 'R' + Date.now();
+		recipe['id'] = R_id;
+		recipe['createdAt'] = new Date().toISOString();
+		try {
+			await setDoc(doc(db, 'recipes', R_id), recipe);
+			return true;
+		} catch (e) {
+			return e;
+		}
+	};
+
+	/* getRecipeById
+		input - id: String
+		output - recipe: Object | false (if not founded)
+	*/
+
+	getRecipeById = async (id) => {
+		const recipeRef = collection(db, 'recipes');
+		const q = query(recipeRef, where('id', '==', id));
+		try {
+			let recipe; // undefined (default)
+			const snapshot = await getDocs(q);
+			snapshot.forEach((doc) => {
+				recipe = doc.data();
+			});
+			if (!recipe) return false;
+			else return recipe;
+		} catch (e) {
+			console.log(e);
+			return false;
+		}
+	};
+
+
+
+	createRecipe_test = async () => {
+		const R_id = 'R' + Date.now();
 		const dummy = {
 			id: R_id,
-			createAt: new Date().toISOString(),
+			createdAt: new Date().toISOString(),
 			title: 'title 나는 김 한 율 이다',
 			description: 'des 나는 이 진 이 다',
 			category: ['강대렬', '김현수', '이진이', '김한율'],
 			people: '4',
 			minutes: '123456',
 			level: '최상',
-			ingredients: [{
-				ingredient: '재료 이름 뭐로 하냐',
-				amount: '0.5T',
-			},
-			{
-				ingredient: '재료 이름 뭐로 하냐 ?',
-				amount: '1123T',
-			}],
-			how_to_make: [{
-				step: 1,
-				cooking: '쿠킹입니다잉',
-				cook_image: 'cooking_image_url',
-			},
-			{
-				step: 2,
-				cooking: '쿠킹 2입니다잉',
-				cook_image: 'cooking_image_url',
-			}],
+			ingredients: [
+				{
+					ingredient: '재료 이름 뭐로 하냐',
+					amount: '0.5T',
+				},
+				{
+					ingredient: '재료 이름 뭐로 하냐 ?',
+					amount: '1123T',
+				},
+			],
+			how_to_make: [
+				{
+					step: 1,
+					cooking: '쿠킹입니다잉',
+					cook_image: 'cooking_image_url',
+				},
+				{
+					step: 2,
+					cooking: '쿠킹 2입니다잉',
+					cook_image: 'cooking_image_url',
+				},
+			],
 		};
 
-		await setDoc(doc(db, 'recipes', R_id), dummy)
+		await setDoc(doc(db, 'recipes', R_id), dummy);
 		// try {
 		// 	const docRef = await addDoc(collection(db, 'users'), dummy);
 
@@ -144,6 +193,16 @@ export class FirebaseDBService {
 		// } catch (e) {
 		// 	console.error('Error adding document: ', e);
 		// }
+	};
+
+	getRecipe = async () => {
+		const recipeRef = collection(db, 'recipes');
+		const q = query(recipeRef, where('people', '==', '4'));
+		const snapshot = await getDocs(q);
+		console.log(snapshot);
+		snapshot.forEach((doc) => {
+			console.log('id: ', doc.id, 'data: ', doc.data());
+		});
 	};
 }
 
@@ -164,7 +223,7 @@ export class cloudinaryService {
 			method: 'POST',
 			data: formdata,
 		});
-		console.log(fileRes);
+		console.log(fileRes.data);
 
 		return fileRes.data;
 	};

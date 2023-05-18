@@ -27,7 +27,7 @@ const Order = ({ step, des, picture, onInput, Cloudinary }) => {
 		console.log(files);
 		const fileData = await Cloudinary.uploadFile(files);
 		const pictureUrl = fileData.url;
-		console.log(pictureUrl);
+		// console.log(pictureUrl);
 		// onFileChange(e)
 		onPictureChange(pictureUrl);
 		setLoading(false);
@@ -233,8 +233,9 @@ const CreateRecipe = ({ Cloudinary, DBService }) => {
 	};
 
 	const onCreateRecipe = async () => {
-		await DBService.createRecipe();
+		await DBService.createRecipe_test();
 		console.log("recipe Created");
+		await DBService.getRecipeById('R1684401348189176');
 	}
 
 	return (
