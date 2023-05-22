@@ -232,10 +232,16 @@ const CreateRecipe = ({ Cloudinary, DBService }) => {
 		setIngredients(newIng);
 	};
 
+	// For interaction with DB, Cloud service
 	const onCreateRecipe = async () => {
+		// for(let i =0; i< 30; i++)
 		await DBService.createRecipe_test();
-		console.log("recipe Created");
-		await DBService.getRecipeById('R1684401348189176');
+	}
+
+	const onDeleteClick = async () => {
+		// await DBService.deleteRecipe('R1684409592182');
+		// const recipes = await DBService.getRecipeByOwner("rkdeofuf");
+		await DBService.getAllRecipes();
 	}
 
 	return (
@@ -377,6 +383,7 @@ const CreateRecipe = ({ Cloudinary, DBService }) => {
 					</div>
 				</div>
 				<button className='submit' onClick={onCreateRecipe}>등록하기</button>
+				<button className='delete' onClick={onDeleteClick}>레시피 삭제</button>
 			</div>
 		</div>
 	);

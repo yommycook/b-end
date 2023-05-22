@@ -15,7 +15,8 @@ import {
 	query,
 	where,
 	getDocs,
-	getDoc,
+	deleteDoc,
+	orderBy
 } from 'firebase/firestore';
 import axios from 'axios';
 
@@ -122,12 +123,11 @@ export class FirebaseDBService {
 		const R_id = 'R' + Date.now();
 		recipe['id'] = R_id;
 		recipe['createdAt'] = new Date().toISOString();
+		recipe['updatedAt'] = new Date().toISOString();
 
-		// location of Img: recipe.how_to_make[index].cook_image
-
+		// Location of Img: recipe.how_to_make[index].cook_image
 		for(let i = 0; i < recipe.how_to_make.length; i++) {
 			const fileList = recipe.how_to_make[i].cook_image;
-			console.log(fileList);
 			const imgData = await this.cloudinary.uploadFile(fileList);
 			recipe.how_to_make[i].cook_image = imgData.url;
 		}
@@ -163,13 +163,74 @@ export class FirebaseDBService {
 	};
 
 
+	updateRecipe = async (id, recipe) => {
+		const beforeRecipe = await this.getRecipeById(id);
+		if(!beforeRecipe) return false;
+
+		// update from latest info to past info
+		Object.keys(beforeRecipe).forEach(key => {
+			if(recipe[key])
+				beforeRecipe[key] = recipe[key];
+		})
+		beforeRecipe.updatedAt = new Date().toISOString();
+
+		// check if img is changed
+		for(let i = 0; i < beforeRecipe.how_to_make.length; i++){
+			const fileList = beforeRecipe.how_to_make[i].cook_image;
+			if(typeof fileList !== String){
+				const imgData = await this.cloudinary.uploadFile(fileList);
+				beforeRecipe.how_to_make[i].cook_image = imgData.url;
+			}
+		}
+	}
+
+	/* getRecipeByOwner
+		input - id: String
+		output - recipes: Array[recipe] | false (if not founded)
+	*/
+	getRecipeByOwner = async (ownerId) => {
+		const recipeRef = collection(db, "recipes");
+		const q = query(recipeRef, where('owner', "==", ownerId));
+		try {
+			let recipe; // undefined (default)
+			const snapshot = await getDocs(q);
+			snapshot.forEach((doc) => {
+				console.log(recipe);
+				recipe = doc.data();
+			});
+			if (!recipe) return false;
+			else return recipe;
+		} catch (e) {
+			console.log(e);
+			return false;
+		}
+	}
+
+	deleteRecipeById = async (id) => {
+		await deleteDoc(doc(db, "recipes", String(id)));
+	}
+
+
+	// for Main Page -> get all Recipes ordered by createdAt
+	getAllRecipes = async () => {
+		const recipes = []
+		const ref = collection(db, "recipes");
+		const q = query(ref, orderBy("createdAt", 'desc'));
+		const snapshot = await getDocs(q);
+		snapshot.forEach(doc => {
+			recipes.push(doc.data().createdAt);
+		});
+		console.log(recipes);
+	}
 
 	createRecipe_test = async () => {
 		const R_id = 'R' + Date.now();
 		const dummy = {
 			id: R_id,
 			createdAt: new Date().toISOString(),
+			updatedAt: new Date().toISOString(),
 			title: 'title 나는 김 한 율 이다',
+			owner: "rkdeofuf",
 			description: 'des 나는 이 진 이 다',
 			category: ['강대렬', '김현수', '이진이', '김한율'],
 			people: '4',
@@ -229,7 +290,7 @@ export class FirebaseDBService {
 export class cloudinaryService {
 	uploadFile = async (files) => {
 		const formdata = new FormData();
-
+		
 		for (let i = 0; i < files.length; i++) {
 			let file = files[i];
 			formdata.append('file', file);
