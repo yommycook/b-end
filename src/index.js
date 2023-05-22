@@ -6,7 +6,7 @@ import { FirebaseDBService, FirebaseService, cloudinaryService } from './service
 
 const FireBaseAuth = new FirebaseService();
 const Cloudinary = new cloudinaryService();
-const DBService = new FirebaseDBService();
+const DBService = new FirebaseDBService(Cloudinary);
 
 
 

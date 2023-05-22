@@ -109,6 +109,10 @@ export class FirebaseService {
 // DB Service
 
 export class FirebaseDBService {
+	
+	constructor(cloudinary){
+		this.cloudinary = cloudinary;
+	}
 	/* createRecipe 
 	 input - recipeData: Object
 	 output - true | error (if error)
@@ -118,6 +122,16 @@ export class FirebaseDBService {
 		const R_id = 'R' + Date.now();
 		recipe['id'] = R_id;
 		recipe['createdAt'] = new Date().toISOString();
+
+		// location of Img: recipe.how_to_make[index].cook_image
+
+		for(let i = 0; i < recipe.how_to_make.length; i++) {
+			const fileList = recipe.how_to_make[i].cook_image;
+			console.log(fileList);
+			const imgData = await this.cloudinary.uploadFile(fileList);
+			recipe.how_to_make[i].cook_image = imgData.url;
+		}
+
 		try {
 			await setDoc(doc(db, 'recipes', R_id), recipe);
 			return true;
@@ -193,6 +207,12 @@ export class FirebaseDBService {
 		// } catch (e) {
 		// 	console.error('Error adding document: ', e);
 		// }
+		for(let i = 0; i < dummy.how_to_make.length; i++) {
+			const fileList = dummy.how_to_make[i].cook_image;
+			console.log(fileList);
+			// const imgData = await this.cloudinary.uploadFile(fileList);
+			// recipe.how_to_make[i].cook_image = imgData.url;
+		}
 	};
 
 	getRecipe = async () => {
@@ -228,6 +248,14 @@ export class cloudinaryService {
 		return fileRes.data;
 	};
 }
+
+
+
+
+
+
+// NOTE - this Class is for Opensource Class only
+// Don't need to use this funciton by people from 캡스톤 3.
 
 export class pbDataService {
 	airportCongestion = () => {
