@@ -16,9 +16,10 @@ import {
 	where,
 	getDocs,
 	deleteDoc,
-	orderBy
+	orderBy,
 } from 'firebase/firestore';
-import axios from 'axios';
+import { modifyTimeInRecipe, organizeRecipeInPage } from './factory';
+import axios, { all } from 'axios';
 
 const CLOUD_NAME = 'dfvqmpyji';
 const UPLOAD_PRESET = 'qzlqkpry';
@@ -110,9 +111,9 @@ export class FirebaseService {
 // DB Service
 
 export class FirebaseDBService {
-	
-	constructor(cloudinary){
+	constructor(cloudinary) {
 		this.cloudinary = cloudinary;
+		this.pageCounts = 10;
 	}
 	/* createRecipe 
 	 input - recipeData: Object
@@ -126,7 +127,7 @@ export class FirebaseDBService {
 		recipe['updatedAt'] = new Date().toISOString();
 
 		// Location of Img: recipe.how_to_make[index].cook_image
-		for(let i = 0; i < recipe.how_to_make.length; i++) {
+		for (let i = 0; i < recipe.how_to_make.length; i++) {
 			const fileList = recipe.how_to_make[i].cook_image;
 			const imgData = await this.cloudinary.uploadFile(fileList);
 			recipe.how_to_make[i].cook_image = imgData.url;
@@ -162,35 +163,33 @@ export class FirebaseDBService {
 		}
 	};
 
-
 	updateRecipe = async (id, recipe) => {
 		const beforeRecipe = await this.getRecipeById(id);
-		if(!beforeRecipe) return false;
+		if (!beforeRecipe) return false;
 
 		// update from latest info to past info
-		Object.keys(beforeRecipe).forEach(key => {
-			if(recipe[key])
-				beforeRecipe[key] = recipe[key];
-		})
+		Object.keys(beforeRecipe).forEach((key) => {
+			if (recipe[key]) beforeRecipe[key] = recipe[key];
+		});
 		beforeRecipe.updatedAt = new Date().toISOString();
 
 		// check if img is changed
-		for(let i = 0; i < beforeRecipe.how_to_make.length; i++){
+		for (let i = 0; i < beforeRecipe.how_to_make.length; i++) {
 			const fileList = beforeRecipe.how_to_make[i].cook_image;
-			if(typeof fileList !== String){
+			if (typeof fileList !== String) {
 				const imgData = await this.cloudinary.uploadFile(fileList);
 				beforeRecipe.how_to_make[i].cook_image = imgData.url;
 			}
 		}
-	}
+	};
 
 	/* getRecipeByOwner
 		input - id: String
 		output - recipes: Array[recipe] | false (if not founded)
 	*/
 	getRecipeByOwner = async (ownerId) => {
-		const recipeRef = collection(db, "recipes");
-		const q = query(recipeRef, where('owner', "==", ownerId));
+		const recipeRef = collection(db, 'recipes');
+		const q = query(recipeRef, where('owner', '==', ownerId));
 		try {
 			let recipe; // undefined (default)
 			const snapshot = await getDocs(q);
@@ -204,24 +203,49 @@ export class FirebaseDBService {
 			console.log(e);
 			return false;
 		}
-	}
+	};
 
 	deleteRecipeById = async (id) => {
-		await deleteDoc(doc(db, "recipes", String(id)));
-	}
-
+		await deleteDoc(doc(db, 'recipes', String(id)));
+	};
 
 	// for Main Page -> get all Recipes ordered by createdAt
 	getAllRecipes = async () => {
-		const recipes = []
-		const ref = collection(db, "recipes");
-		const q = query(ref, orderBy("createdAt", 'desc'));
+		const recipes = [];
+		const ref = collection(db, 'recipes');
+		const q = query(ref, orderBy('createdAt', 'desc'));
 		const snapshot = await getDocs(q);
-		snapshot.forEach(doc => {
-			recipes.push(doc.data().createdAt);
+
+		snapshot.forEach((doc) => {
+			recipes.push(doc.data());
+		});
+
+		console.log(recipes);
+		return recipes;
+	};
+
+	getLatestRecipes = async () => {
+		const allRecipes = await this.getAllRecipes();
+		modifyTimeInRecipe(allRecipes);
+		return organizeRecipeInPage(allRecipes, this.recipeCounts);
+	};
+
+	// In general, it will return recipes as <List> paged with descend sorting
+	getRecipesByKeyword = async (keyword) => {
+		const recipes = [];
+		const ref = collection(db, 'recipes');
+		const keywords = keyword.split(" ");
+		const q = query(
+			ref,
+			where('title', 'array-contains-any', keywords),
+			orderBy('createdAt', 'desc')
+		);
+		const snapshot = await getDocs(q);
+		snapshot.forEach((doc) => {
+			recipes.push(doc.data());
 		});
 		console.log(recipes);
-	}
+	};
 
 	createRecipe_test = async () => {
 		const R_id = 'R' + Date.now();
@@ -230,7 +254,7 @@ export class FirebaseDBService {
 			createdAt: new Date().toISOString(),
 			updatedAt: new Date().toISOString(),
 			title: 'title 나는 김 한 율 이다',
-			owner: "rkdeofuf",
+			owner: 'rkdeofuf',
 			description: 'des 나는 이 진 이 다',
 			category: ['강대렬', '김현수', '이진이', '김한율'],
 			people: '4',
@@ -268,7 +292,7 @@ export class FirebaseDBService {
 		// } catch (e) {
 		// 	console.error('Error adding document: ', e);
 		// }
-		for(let i = 0; i < dummy.how_to_make.length; i++) {
+		for (let i = 0; i < dummy.how_to_make.length; i++) {
 			const fileList = dummy.how_to_make[i].cook_image;
 			console.log(fileList);
 			// const imgData = await this.cloudinary.uploadFile(fileList);
@@ -290,7 +314,7 @@ export class FirebaseDBService {
 export class cloudinaryService {
 	uploadFile = async (files) => {
 		const formdata = new FormData();
-		
+
 		for (let i = 0; i < files.length; i++) {
 			let file = files[i];
 			formdata.append('file', file);
@@ -309,11 +333,6 @@ export class cloudinaryService {
 		return fileRes.data;
 	};
 }
-
-
-
-
-
 
 // NOTE - this Class is for Opensource Class only
 // Don't need to use this funciton by people from 캡스톤 3.

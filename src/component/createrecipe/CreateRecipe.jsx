@@ -241,7 +241,8 @@ const CreateRecipe = ({ Cloudinary, DBService }) => {
 	const onDeleteClick = async () => {
 		// await DBService.deleteRecipe('R1684409592182');
 		// const recipes = await DBService.getRecipeByOwner("rkdeofuf");
-		await DBService.getAllRecipes();
+		// await DBService.getLatestRecipes();
+		await DBService.getRecipesByKeyword("123 456");
 	}
 
 	return (
