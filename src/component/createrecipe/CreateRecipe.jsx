@@ -242,7 +242,7 @@ const CreateRecipe = ({ Cloudinary, DBService }) => {
 		// await DBService.deleteRecipe('R1684409592182');
 		// const recipes = await DBService.getRecipeByOwner("rkdeofuf");
 		// await DBService.getLatestRecipes();
-		await DBService.getRecipesByKeyword("123 456");
+		await DBService.getRecipesByKeyword("나는 김 한 율이다");
 	}
 
 	return (

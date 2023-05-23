@@ -113,7 +113,7 @@ export class FirebaseService {
 export class FirebaseDBService {
 	constructor(cloudinary) {
 		this.cloudinary = cloudinary;
-		this.pageCounts = 10;
+		this.recipesPerPage = 10;
 	}
 	/* createRecipe 
 	 input - recipeData: Object
@@ -140,13 +140,8 @@ export class FirebaseDBService {
 			return e;
 		}
 	};
-
-	/* getRecipeById
-		input - id: String
-		output - recipe: Object | false (if not founded)
-	*/
-
-	getRecipeById = async (id) => {
+	
+	getOriginalRecipeDataById = async (id) => {
 		const recipeRef = collection(db, 'recipes');
 		const q = query(recipeRef, where('id', '==', id));
 		try {
@@ -162,9 +157,20 @@ export class FirebaseDBService {
 			return false;
 		}
 	};
+	
+	/* getRecipeDataById
+		input - id: String
+		output - recipe: Object | false (if not founded)
+	*/
+	getRecipeById = async (id) => {
+		const recipe = await this.getOriginalRecipeDataById(id);
+		if(!recipe) return false;
+		modifyTimeInRecipe(recipe);
+		return recipe;
+	}
 
 	updateRecipe = async (id, recipe) => {
-		const beforeRecipe = await this.getRecipeById(id);
+		const beforeRecipe = await this.getOriginalRecipeDataById(id);
 		if (!beforeRecipe) return false;
 
 		// update from latest info to past info
@@ -187,18 +193,20 @@ export class FirebaseDBService {
 		input - id: String
 		output - recipes: Array[recipe] | false (if not founded)
 	*/
-	getRecipeByOwner = async (ownerId) => {
+	getRecipesByOwner = async (ownerId) => {
 		const recipeRef = collection(db, 'recipes');
 		const q = query(recipeRef, where('owner', '==', ownerId));
 		try {
 			let recipe; // undefined (default)
 			const snapshot = await getDocs(q);
 			snapshot.forEach((doc) => {
-				console.log(recipe);
 				recipe = doc.data();
 			});
 			if (!recipe) return false;
-			else return recipe;
+			else {
+				modifyTimeInRecipe(recipe);
+				return organizeRecipeInPage(recipe, this.recipesPerPage);
+			}
 		} catch (e) {
 			console.log(e);
 			return false;
@@ -209,44 +217,44 @@ export class FirebaseDBService {
 		await deleteDoc(doc(db, 'recipes', String(id)));
 	};
 
+	getSnapShotForAllRecipes = async () => {
+		const ref = collection(db, 'recipes');
+		const q = query(ref, orderBy('createdAt', 'desc'));
+		return await getDocs(q);
+	};
+
 	// for Main Page -> get all Recipes ordered by createdAt
 	getAllRecipes = async () => {
 		const recipes = [];
-		const ref = collection(db, 'recipes');
-		const q = query(ref, orderBy('createdAt', 'desc'));
-		const snapshot = await getDocs(q);
+		const snapshot = await this.getSnapShotForAllRecipes();
 
 		snapshot.forEach((doc) => {
 			recipes.push(doc.data());
 		});
-
-		console.log(recipes);
 		return recipes;
 	};
 
 	getLatestRecipes = async () => {
 		const allRecipes = await this.getAllRecipes();
 		modifyTimeInRecipe(allRecipes);
-		return organizeRecipeInPage(allRecipes, this.recipeCounts);
+		return organizeRecipeInPage(allRecipes, this.recipesPerPage);
 	};
 
 	// In general, it will return recipes as <List> paged with descend sorting
 	getRecipesByKeyword = async (keyword) => {
 		const recipes = [];
-		const ref = collection(db, 'recipes');
-		const keywords = keyword.split(" ");
-		const q = query(
-			ref,
-			where('title', 'array-contains-any', keywords),
-			orderBy('createdAt', 'desc')
-		);
-		const snapshot = await getDocs(q);
+		const keywords = keyword.split(' ');
+		const snapshot = await this.getSnapShotForAllRecipes();
 		snapshot.forEach((doc) => {
-			recipes.push(doc.data());
+			const data = doc.data();
+			const result = keywords.some((keyword) => data.title?.includes(keyword));
+			if (result) recipes.push(data);
 		});
-		console.log(recipes);
+		modifyTimeInRecipe(recipes);
+		return organizeRecipeInPage(recipes, this.recipesPerPage);
 	};
 
+	// -------------------- test ------------------------------------
 	createRecipe_test = async () => {
 		const R_id = 'R' + Date.now();
 		const dummy = {
@@ -299,6 +307,7 @@ export class FirebaseDBService {
 			// recipe.how_to_make[i].cook_image = imgData.url;
 		}
 	};
+	// -------------------- test ------------------------------------
 
 	getRecipe = async () => {
 		const recipeRef = collection(db, 'recipes');
