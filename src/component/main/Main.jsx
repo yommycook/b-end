@@ -1,5 +1,5 @@
 import React, { useEffect } from "react";
-import Styles from './main.module.css';
+// import Styles from './main.module.css';
 import { useNavigate } from "react-router";
 
 const Main = ({isLogin}) => {
@@ -8,7 +8,7 @@ const Main = ({isLogin}) => {
     if(!isLogin.state){
       navigate("/");
     }
-  }, [isLogin]);
+  }, [isLogin, navigate]);
 
 
 

@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import Styles from './createrecipe.module.css';
 
 const Order = ({ step, des, picture, onInput, Cloudinary }) => {
@@ -27,7 +27,7 @@ const Order = ({ step, des, picture, onInput, Cloudinary }) => {
 		console.log(files);
 		const fileData = await Cloudinary.uploadFile(files);
 		const pictureUrl = fileData.url;
-		console.log(pictureUrl);
+		// console.log(pictureUrl);
 		// onFileChange(e)
 		onPictureChange(pictureUrl);
 		setLoading(false);
@@ -102,7 +102,8 @@ const Ing = ({ index, onInput, name, unit }) => {
 };
 
 // CreateRecipe
-const CreateRecipe = ({ Cloudinary }) => {
+const CreateRecipe = ({ Cloudinary, DBService }) => {
+
 	// useRef -> 레시피 input정보 참조
 	const titleRef = useRef();
 	const introductionRef = useRef();
@@ -230,6 +231,19 @@ const CreateRecipe = ({ Cloudinary }) => {
 		newIng.pop();
 		setIngredients(newIng);
 	};
+
+	// For interaction with DB, Cloud service
+	const onCreateRecipe = async () => {
+		// for(let i =0; i< 30; i++)
+		await DBService.createRecipe_test();
+	}
+
+	const onDeleteClick = async () => {
+		// await DBService.deleteRecipe('R1684409592182');
+		// const recipes = await DBService.getRecipeByOwner("rkdeofuf");
+		// await DBService.getLatestRecipes();
+		await DBService.getRecipesByKeyword("나는 김 한 율이다");
+	}
 
 	return (
 		<div className='container'>
@@ -369,7 +383,8 @@ const CreateRecipe = ({ Cloudinary }) => {
 						<span>제거</span>
 					</div>
 				</div>
-				<button className='submit'>등록하기</button>
+				<button className='submit' onClick={onCreateRecipe}>등록하기</button>
+				<button className='delete' onClick={onDeleteClick}>레시피 삭제</button>
 			</div>
 		</div>
 	);
