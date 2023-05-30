@@ -140,7 +140,7 @@ export class FirebaseDBService {
 			return e;
 		}
 	};
-	
+
 	getOriginalRecipeDataById = async (id) => {
 		const recipeRef = collection(db, 'recipes');
 		const q = query(recipeRef, where('id', '==', id));
@@ -157,17 +157,17 @@ export class FirebaseDBService {
 			return false;
 		}
 	};
-	
+
 	/* getRecipeDataById
 		input - id: String
 		output - recipe: Object | false (if not founded)
 	*/
 	getRecipeById = async (id) => {
 		const recipe = await this.getOriginalRecipeDataById(id);
-		if(!recipe) return false;
+		if (!recipe) return false;
 		modifyTimeInRecipe(recipe);
 		return recipe;
-	}
+	};
 
 	updateRecipe = async (id, recipe) => {
 		const beforeRecipe = await this.getOriginalRecipeDataById(id);
@@ -255,7 +255,7 @@ export class FirebaseDBService {
 	};
 
 	// -------------------- test ------------------------------------
-	createRecipe_test = async () => {
+	createRecipe_test = async (file) => {
 		const R_id = 'R' + Date.now();
 		const dummy = {
 			id: R_id,
@@ -282,17 +282,18 @@ export class FirebaseDBService {
 				{
 					step: 1,
 					cooking: '쿠킹입니다잉',
-					cook_image: 'cooking_image_url',
+					cook_image: file,
 				},
 				{
 					step: 2,
 					cooking: '쿠킹 2입니다잉',
-					cook_image: 'cooking_image_url',
+					cook_image: file,
 				},
 			],
 		};
 
-		await setDoc(doc(db, 'recipes', R_id), dummy);
+		await this.createRecipe(dummy);
+		// await setDoc(doc(db, 'recipes', R_id), dummy);
 		// try {
 		// 	const docRef = await addDoc(collection(db, 'users'), dummy);
 
@@ -300,12 +301,12 @@ export class FirebaseDBService {
 		// } catch (e) {
 		// 	console.error('Error adding document: ', e);
 		// }
-		for (let i = 0; i < dummy.how_to_make.length; i++) {
-			const fileList = dummy.how_to_make[i].cook_image;
-			console.log(fileList);
-			// const imgData = await this.cloudinary.uploadFile(fileList);
-			// recipe.how_to_make[i].cook_image = imgData.url;
-		}
+		// for (let i = 0; i < dummy.how_to_make.length; i++) {
+		// 	const fileList = dummy.how_to_make[i].cook_image;
+		// 	console.log(fileList);
+		// const imgData = await this.cloudinary.uploadFile(fileList);
+		// recipe.how_to_make[i].cook_image = imgData.url;
+		// }
 	};
 	// -------------------- test ------------------------------------
 
@@ -318,12 +319,56 @@ export class FirebaseDBService {
 			console.log('id: ', doc.id, 'data: ', doc.data());
 		});
 	};
+
+	// ------- comment for internal process ---------
+	getOneCommentsById = async (commentId) => {
+		let result;
+		const commentRef = collection(db, "comments");
+		const q = query(commentRef, where("id", "===", commentId));
+		const snapshot = await getDocs(q);
+		snapshot.forEach(doc => {
+			result = doc.data();
+		})
+
+		if(!result) return false;
+
+		return result;
+	}
+
+	// ------- comments MODULE FOR Client -----------
+
+	createComment = async (userId, recipeId, message) => {
+		const C_id = 'C' + Date.now();
+		const newComment = {
+			id: C_id,
+			userId,
+			recipeId,
+			message,
+			createdAt: new Date().toISOString(),
+			updatedAt: new Date().toISOString(),
+		};
+		await setDoc(doc(db, 'comments', C_id), newComment);
+	};
+
+	deleteCommentById = async (id) => {
+		await deleteDoc(doc(db, 'comments', String(id)));
+	};
+
+	updateComments = async (commentId, message) => {
+		const previous = await this.getOneCommentsById(commentId);
+		const newComments = {
+			...previous,
+			message,
+			updatedAt: new Date().toISOString()
+		}
+	}
 }
 
 export class cloudinaryService {
 	uploadFile = async (files) => {
 		const formdata = new FormData();
 
+		console.log(files);
 		for (let i = 0; i < files.length; i++) {
 			let file = files[i];
 			formdata.append('file', file);

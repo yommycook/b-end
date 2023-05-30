@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import Styles from './createrecipe.module.css';
 
-const Order = ({ step, des, picture, onInput, Cloudinary }) => {
+const Order = ({ step, des, picture, onInput, Cloudinary, setFile}) => {
 	const [loading, setLoading] = useState(false);
 	const desRef = useRef();
 	const pictureRef = useRef();
@@ -30,6 +30,7 @@ const Order = ({ step, des, picture, onInput, Cloudinary }) => {
 		// console.log(pictureUrl);
 		// onFileChange(e)
 		onPictureChange(pictureUrl);
+		setFile(files);
 		setLoading(false);
 	};
 
@@ -111,6 +112,8 @@ const CreateRecipe = ({ Cloudinary, DBService }) => {
 	const categoryRefCir = useRef();
 	const categoryRefWay = useRef();
 	const categoryRefIng = useRef();
+	const [file, setFile] = useState("");
+	
 
 	// useState -> 레시피 기록 정보 저장
 	const [overview, setOverview] = useState({
@@ -235,7 +238,8 @@ const CreateRecipe = ({ Cloudinary, DBService }) => {
 	// For interaction with DB, Cloud service
 	const onCreateRecipe = async () => {
 		// for(let i =0; i< 30; i++)
-		await DBService.createRecipe_test();
+		// await DBService.createRecipe_test();
+		await DBService.createComment("rkdeofuf", "R_fptlvl", "tlqkf whssk glaemfek")
 	}
 
 	const onDeleteClick = async () => {
@@ -370,6 +374,7 @@ const CreateRecipe = ({ Cloudinary, DBService }) => {
 								picture={picture}
 								onInput={onOrderInput}
 								Cloudinary={Cloudinary}
+								setFile={setFile}
 							/>
 						);
 					})}
