@@ -45,19 +45,12 @@ const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
 export class FirebaseService {
-	checkLoginState = (setLoginState) => {
+	checkLoginState = () => {
 		const myAuth = getAuth();
 		onAuthStateChanged(myAuth, (user) => {
 			console.log('check Login', user);
-			if (user) {
-				setLoginState((state) => {
-					return {
-						state: true,
-						user: {
-							...state.user,
-						},
-					};
-				});
+			if (!user) {
+				this.signOut();
 			}
 		});
 	};
@@ -99,6 +92,10 @@ export class FirebaseService {
 				email,
 				profile: photoURL,
 				displayName,
+				recipes: [],
+				comments: [],
+				rated: [],
+				copied: []
 			};
 			// Definition Of User Schema
 			// Check -> if user info exists already
@@ -149,16 +146,35 @@ export class FirebaseDBService {
 		this.cloudinary = cloudinary;
 		this.recipesPerPage = 10;
 	}
+	// utilize it for updating when recipe, comment info change
+	getUserById = async (uid) => {
+		let userInfo;
+		const ref = collection(db, 'users');
+		const q = query(ref, where('uid', '==', uid));
+		const snapshot = await getDocs(q);
+		snapshot.forEach((v) => {
+			userInfo = v.data();
+		});
+		return userInfo;
+	};
+
 	/* createRecipe 
 	 input - recipeData: Object
 	 output - true | error (if error)
 	 des - to add Recipe data into DB with createdAt and UId
 	 */
-	createRecipe = async (recipe) => {
+	createRecipe = async (recipe, uid) => {
 		const R_id = 'R' + Date.now();
 		recipe['id'] = R_id;
 		recipe['createdAt'] = new Date().toISOString();
 		recipe['updatedAt'] = new Date().toISOString();
+		recipe['owner'] = uid;
+		recipe['rate'] = {
+			score: 0,
+			ratedPeople: 0
+		}
+
+		recipe['comments'] = [];
 
 		// Location of Img: recipe.how_to_make[index].cook_image
 		// Location of Img(thumb): recipe.picture
@@ -173,6 +189,10 @@ export class FirebaseDBService {
 
 		try {
 			await setDoc(doc(db, 'recipes', R_id), recipe);
+			const user = await this.getUserById(uid);
+			// for user Schema, it needs to push R_id into user.recipes.
+			user.recipes.push(R_id);
+			await setDoc(doc(db, 'users', R_id),user);
 			return true;
 		} catch (e) {
 			return e;
@@ -225,7 +245,12 @@ export class FirebaseDBService {
 				beforeRecipe.how_to_make[i].cook_image = imgData.url;
 			}
 		}
-		// TODO -> update Recipe in DB
+		if(typeof beforeRecipe.picture !== String) {
+			const thumbURL = await this.cloudinary.uploadFile([beforeRecipe.picture]);
+			beforeRecipe.picture = thumbURL;
+		}
+
+		await setDoc(doc(db, "recipes", id), beforeRecipe);
 	};
 
 	/* getRecipeByOwner
@@ -408,11 +433,12 @@ export class FirebaseDBService {
 
 	updateComments = async (commentId, message) => {
 		const previous = await this.getOneCommentsById(commentId);
-		const newComments = {
+		const newComment = {
 			...previous,
 			message,
 			updatedAt: new Date().toISOString(),
 		};
+		await setDoc(doc(db, 'comments', commentId), newComment);
 	};
 }
 
