@@ -50,17 +50,37 @@ export class FirebaseService {
 		onAuthStateChanged(myAuth, (user) => {
 			console.log('check Login', user);
 			if (user) {
-				const { uid, email, photoURL } = user;
-				setLoginState({
-					state: true,
-					user: {
-						uid,
-						email,
-						profile: photoURL,
-					},
+				setLoginState((state) => {
+					return {
+						state: true,
+						user: {
+							...state.user,
+						},
+					};
 				});
 			}
 		});
+	};
+
+	// check If account exists
+	getUserById = async (uid) => {
+		let userInfo;
+		const ref = collection(db, 'users');
+		const q = query(ref, where('uid', '==', uid));
+		const snapshot = await getDocs(q);
+		snapshot.forEach((v) => {
+			userInfo = v.data();
+		});
+		return userInfo;
+	};
+
+	createUser = async (info) => {
+		try {
+			await setDoc(doc(db, 'users', info.uid), info);
+			return true;
+		} catch (e) {
+			return e;
+		}
 	};
 
 	onLogin = async () => {
@@ -72,7 +92,21 @@ export class FirebaseService {
 			const credential = GoogleAuthProvider.credentialFromResult(result);
 			const token = credential.accessToken;
 			// The signed-in user info.
-			const user = result.user;
+			const { uid, email, photoURL, displayName } = result.user;
+
+			const user = {
+				uid,
+				email,
+				profile: photoURL,
+				displayName,
+			};
+			// Definition Of User Schema
+			// Check -> if user info exists already
+			const userInfoFromDB = await this.getUserById(user.uid);
+			if (!userInfoFromDB) {
+				await this.createUser(user);
+			}
+
 			return {
 				type: 'success',
 				token,
@@ -127,11 +161,15 @@ export class FirebaseDBService {
 		recipe['updatedAt'] = new Date().toISOString();
 
 		// Location of Img: recipe.how_to_make[index].cook_image
+		// Location of Img(thumb): recipe.picture
 		for (let i = 0; i < recipe.how_to_make.length; i++) {
 			const fileList = recipe.how_to_make[i].cook_image;
 			const imgData = await this.cloudinary.uploadFile(fileList);
 			recipe.how_to_make[i].cook_image = imgData.url;
 		}
+		// for thumb
+		const thumbData = await this.cloudinary.uploadFile([recipe.picture]);
+		recipe.picture = thumbData.url;
 
 		try {
 			await setDoc(doc(db, 'recipes', R_id), recipe);
@@ -187,6 +225,7 @@ export class FirebaseDBService {
 				beforeRecipe.how_to_make[i].cook_image = imgData.url;
 			}
 		}
+		// TODO -> update Recipe in DB
 	};
 
 	/* getRecipeByOwner
@@ -223,7 +262,6 @@ export class FirebaseDBService {
 		return await getDocs(q);
 	};
 
-	// for Main Page -> get all Recipes ordered by createdAt
 	getAllRecipes = async () => {
 		const recipes = [];
 		const snapshot = await this.getSnapShotForAllRecipes();
@@ -234,6 +272,19 @@ export class FirebaseDBService {
 		return recipes;
 	};
 
+	modifyOwnerToInfo = async (recipes) => {
+		const ownerList = [];
+		recipes.forEach((recipe) => {
+			if (!ownerList.includes(recipe.owner)) ownerList.push(recipe.owner);
+		});
+
+		ownerList.map((item) => {
+			// TO Do, make Login Logic
+			// const user = await getUserById(item);
+		});
+	};
+
+	// for Main Page -> get all Recipes ordered by createdAt
 	getLatestRecipes = async () => {
 		const allRecipes = await this.getAllRecipes();
 		modifyTimeInRecipe(allRecipes);
@@ -290,6 +341,7 @@ export class FirebaseDBService {
 					cook_image: file,
 				},
 			],
+			picture: file[0],
 		};
 
 		await this.createRecipe(dummy);
@@ -323,17 +375,17 @@ export class FirebaseDBService {
 	// ------- comment for internal process ---------
 	getOneCommentsById = async (commentId) => {
 		let result;
-		const commentRef = collection(db, "comments");
-		const q = query(commentRef, where("id", "===", commentId));
+		const commentRef = collection(db, 'comments');
+		const q = query(commentRef, where('id', '===', commentId));
 		const snapshot = await getDocs(q);
-		snapshot.forEach(doc => {
+		snapshot.forEach((doc) => {
 			result = doc.data();
-		})
+		});
 
-		if(!result) return false;
+		if (!result) return false;
 
 		return result;
-	}
+	};
 
 	// ------- comments MODULE FOR Client -----------
 
@@ -359,9 +411,9 @@ export class FirebaseDBService {
 		const newComments = {
 			...previous,
 			message,
-			updatedAt: new Date().toISOString()
-		}
-	}
+			updatedAt: new Date().toISOString(),
+		};
+	};
 }
 
 export class cloudinaryService {
