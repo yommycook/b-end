@@ -5,8 +5,8 @@ const Header = ({ isLogin, setLogin, FireBaseAuth }) => {
 	const navigate = useNavigate();
 	useEffect(() => {
 		if (!isLogin.state) {
-			navigate('/');
       FireBaseAuth.checkLoginState(setLogin);
+			console.log(isLogin);
 		}
 	}, [isLogin, setLogin, FireBaseAuth, navigate]);
 

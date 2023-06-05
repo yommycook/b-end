@@ -19,7 +19,7 @@ const App = ({Cloudinary, FireBaseAuth, DBService}) => {
         <Routes>
           <Route path="/" exact={true} element={<Login isLogin={isLogin}/>} />
           <Route path="/main" exact={true} element={<Main isLogin={isLogin} />} />
-          <Route path="/create" exact={true} element={<CreateRecipe Cloudinary={Cloudinary} DBService={DBService}/>} />
+          <Route path="/create" exact={true} element={<CreateRecipe Cloudinary={Cloudinary} DBService={DBService} isLogin={isLogin}/>} />
         </Routes>
       </div>
       </BrowserRouter>)

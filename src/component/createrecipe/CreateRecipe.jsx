@@ -103,7 +103,7 @@ const Ing = ({ index, onInput, name, unit }) => {
 };
 
 // CreateRecipe
-const CreateRecipe = ({ Cloudinary, DBService }) => {
+const CreateRecipe = ({ Cloudinary, DBService, isLogin }) => {
 
 	// useRef -> 레시피 input정보 참조
 	const titleRef = useRef();
@@ -237,8 +237,8 @@ const CreateRecipe = ({ Cloudinary, DBService }) => {
 
 	// For interaction with DB, Cloud service
 	const onCreateRecipe = async () => {
-		// for(let i =0; i< 30; i++)
-		await DBService.createRecipe_test(file);
+		for(let i =0; i< 30; i++)
+		await DBService.createRecipe_test(file, isLogin.user.uid);
 		// await DBService.createComment("rkdeofuf", "R_fptlvl", "tlqkf whssk glaemfek")
 	}
 
@@ -246,7 +246,10 @@ const CreateRecipe = ({ Cloudinary, DBService }) => {
 		// await DBService.deleteRecipe('R1684409592182');
 		// const recipes = await DBService.getRecipeByOwner("rkdeofuf");
 		// await DBService.getLatestRecipes();
-		await DBService.getRecipesByKeyword("나는 김 한 율이다");
+		// await DBService.getRecipesByKeyword("나는 김 한 율이다");
+		const recipes = await DBService.getAllRecipes();
+		console.log(recipes);
+		await DBService.modifyOwnerToInfo(recipes);
 	}
 
 	return (

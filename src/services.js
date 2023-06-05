@@ -45,12 +45,19 @@ const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
 export class FirebaseService {
-	checkLoginState = () => {
+	checkLoginState = (setLogin) => {
 		const myAuth = getAuth();
 		onAuthStateChanged(myAuth, (user) => {
-			console.log('check Login', user);
 			if (!user) {
-				this.signOut();
+				return this.signOut();
+			} else {
+				this.getUserById(user.uid).then((result) => {
+					console.log(result);
+					return setLogin({
+						state: true,
+						user: result
+					})
+				})
 			}
 		});
 	};
@@ -106,7 +113,6 @@ export class FirebaseService {
 
 			return {
 				type: 'success',
-				token,
 				user,
 			};
 		} catch (error) {
@@ -148,6 +154,7 @@ export class FirebaseDBService {
 	}
 	// utilize it for updating when recipe, comment info change
 	getUserById = async (uid) => {
+		if(!uid) return false;
 		let userInfo;
 		const ref = collection(db, 'users');
 		const q = query(ref, where('uid', '==', uid));
@@ -180,12 +187,20 @@ export class FirebaseDBService {
 		// Location of Img(thumb): recipe.picture
 		for (let i = 0; i < recipe.how_to_make.length; i++) {
 			const fileList = recipe.how_to_make[i].cook_image;
-			const imgData = await this.cloudinary.uploadFile(fileList);
-			recipe.how_to_make[i].cook_image = imgData.url;
+			if(!fileList) recipe.how_to_make[i].cook_image = "Demo";
+			else{
+				const imgData = await this.cloudinary.uploadFile(fileList);
+				recipe.how_to_make[i].cook_image = imgData.url;
+			}
 		}
 		// for thumb
-		const thumbData = await this.cloudinary.uploadFile([recipe.picture]);
-		recipe.picture = thumbData.url;
+		if(!recipe.picture){
+			recipe.picture = "Demo";
+		}
+		else{
+			const thumbData = await this.cloudinary.uploadFile([recipe.picture]);
+			recipe.picture = thumbData.url;
+		}
 
 		try {
 			await setDoc(doc(db, 'recipes', R_id), recipe);
@@ -264,7 +279,7 @@ export class FirebaseDBService {
 			let recipe; // undefined (default)
 			const snapshot = await getDocs(q);
 			snapshot.forEach((doc) => {
-				recipe = doc.data();
+				recipe.push(doc.data());
 			});
 			if (!recipe) return false;
 			else {
@@ -297,16 +312,22 @@ export class FirebaseDBService {
 		return recipes;
 	};
 
-	modifyOwnerToInfo = async (recipes) => {
-		const ownerList = [];
-		recipes.forEach((recipe) => {
-			if (!ownerList.includes(recipe.owner)) ownerList.push(recipe.owner);
-		});
 
-		ownerList.map((item) => {
-			// TO Do, make Login Logic
-			// const user = await getUserById(item);
+	//
+	modifyOwnerToInfo = async (recipes) => {
+		const ownerIdList = [];
+		const userList = [];
+		recipes.forEach((recipe) => {
+			
+			if (!ownerIdList.includes(recipe.owner) && recipe.owner) ownerIdList.push(recipe.owner);
 		});
+		console.log(ownerIdList);
+		const ownerPromises = ownerIdList.map((uid) => {
+			return this.getUserById(uid);
+		});
+		console.log(ownerPromises);
+		const ownerList = await Promise.all(ownerPromises);
+		console.log(ownerList);
 	};
 
 	// for Main Page -> get all Recipes ordered by createdAt
@@ -331,14 +352,14 @@ export class FirebaseDBService {
 	};
 
 	// -------------------- test ------------------------------------
-	createRecipe_test = async (file) => {
+	createRecipe_test = async (file, uid) => {
 		const R_id = 'R' + Date.now();
 		const dummy = {
 			id: R_id,
 			createdAt: new Date().toISOString(),
 			updatedAt: new Date().toISOString(),
 			title: 'title 나는 김 한 율 이다',
-			owner: 'rkdeofuf',
+			owner: uid,
 			description: 'des 나는 이 진 이 다',
 			category: ['강대렬', '김현수', '이진이', '김한율'],
 			people: '4',
@@ -366,7 +387,7 @@ export class FirebaseDBService {
 					cook_image: file,
 				},
 			],
-			picture: file[0],
+			picture: file?.[0],
 		};
 
 		await this.createRecipe(dummy);
@@ -398,10 +419,10 @@ export class FirebaseDBService {
 	};
 
 	// ------- comment for internal process ---------
-	getOneCommentsById = async (commentId) => {
+	getCommentsByWhere = async (commentId, where) => {
 		let result;
 		const commentRef = collection(db, 'comments');
-		const q = query(commentRef, where('id', '===', commentId));
+		const q = query(commentRef, where('id', '==', commentId));
 		const snapshot = await getDocs(q);
 		snapshot.forEach((doc) => {
 			result = doc.data();
@@ -427,10 +448,18 @@ export class FirebaseDBService {
 		await setDoc(doc(db, 'comments', C_id), newComment);
 	};
 
-	deleteCommentById = async (id) => {
-		await deleteDoc(doc(db, 'comments', String(id)));
-	};
+	getCommentsByRecipeId = async (recipeId) => {
+		let result;
+		const commentRef = collection(db, 'comments');
+		const q = query(commentRef, where('recipeId', '==', recipeId));
+		const snapshot = await getDocs(q);
+		snapshot.forEach((doc) => {
+			result = doc.data();
+		});
 
+	}
+	
+	// changing comment info and return changed comment data as optimized one.
 	updateComments = async (commentId, message) => {
 		const previous = await this.getOneCommentsById(commentId);
 		const newComment = {
@@ -439,6 +468,11 @@ export class FirebaseDBService {
 			updatedAt: new Date().toISOString(),
 		};
 		await setDoc(doc(db, 'comments', commentId), newComment);
+		// TO DO: return optimized data
+	};
+
+	deleteCommentById = async (id) => {
+		await deleteDoc(doc(db, 'comments', String(id)));
 	};
 }
 
