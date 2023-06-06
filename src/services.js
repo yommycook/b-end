@@ -10,7 +10,6 @@ import {
 	getFirestore,
 	doc,
 	setDoc,
-	addDoc,
 	collection,
 	query,
 	where,
@@ -101,8 +100,12 @@ export class FirebaseService {
 				email,
 				profile: photoURL,
 				displayName,
-				rated: [],
-				copied: [],
+				rated: {
+					// recipeId: score(Number)
+				},
+				copied: [
+					// recipeId
+				],
 			};
 			// Definition Of User Schema
 			// Check -> if user info exists already
@@ -272,10 +275,6 @@ export class FirebaseDBService {
 		try {
 			console.log(recipe);
 			await setDoc(doc(db, 'recipes', R_id), recipe);
-			const user = await this.getUserById(uid);
-			// for user Schema, it needs to push R_id into user.recipes.
-			user.recipes.push(R_id);
-			await setDoc(doc(db, 'users', R_id), user);
 			return true;
 		} catch (e) {
 			return e;
@@ -519,6 +518,30 @@ export class cloudinaryService {
 
 		return fileRes.data;
 	};
+	
+
+
+	// Module FOR Rating
+	rateRecipe = async (recipeId, userId, score) => {
+		const recipe = await this.getOriginalRecipeDataById(recipeId);
+		const user = await this.getUserById(userId);
+		const isRated = Object.keys(user.rated).includes(recipe.id);
+		if(isRated) {
+			const prevScore = user.rated[`${recipe.id}`];
+			const totalScore = recipe.rate.people * recipe.rate.score;
+			recipe.rate.score = (totalScore - prevScore + Number(score)) / recipe.rate.people;
+		} else {
+			user.rated[`${recipe.id}`] = Number(score);
+			let prevTotalScore = recipe.rate.people * recipe.rate.score;
+			prevTotalScore += Number(score);
+			recipe.rate.people++;
+			recipe.rate.score = prevTotalScore / recipe.rate.people;
+		}
+
+		setDoc(doc(db, "recipes", recipeId), recipe);
+		setDoc(doc(db, "users", userId), user);
+		console.log(user, recipe);
+	}
 }
 
 // NOTE - this Class is for Opensource Class only
