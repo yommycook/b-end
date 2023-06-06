@@ -18,8 +18,8 @@ import {
 	deleteDoc,
 	orderBy,
 } from 'firebase/firestore';
-import { modifyTimeInRecipe, organizeRecipeInPage } from './factory';
-import axios, { all } from 'axios';
+import { modifyTimeInComment, modifyTimeInRecipe, organizeRecipeInPage } from './factory';
+import axios from 'axios';
 
 const CLOUD_NAME = 'dfvqmpyji';
 const UPLOAD_PRESET = 'qzlqkpry';
@@ -38,6 +38,9 @@ const firebaseConfig = {
 	databaseURL: `https://${process.env.REACT_APP_PROJECT_ID}-default-rtdb.asia-southeast1.firebasedatabase.app`,
 };
 
+const DEFAULT_COOKING_IMG = 'default_cooking_img';
+const DEFAULT_THUMB_IMG = 'default_thumg_img';
+
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
 
@@ -52,12 +55,11 @@ export class FirebaseService {
 				return this.signOut();
 			} else {
 				this.getUserById(user.uid).then((result) => {
-					console.log(result);
 					return setLogin({
 						state: true,
-						user: result
-					})
-				})
+						user: result,
+					});
+				});
 			}
 		});
 	};
@@ -99,10 +101,8 @@ export class FirebaseService {
 				email,
 				profile: photoURL,
 				displayName,
-				recipes: [],
-				comments: [],
 				rated: [],
-				copied: []
+				copied: [],
 			};
 			// Definition Of User Schema
 			// Check -> if user info exists already
@@ -154,7 +154,7 @@ export class FirebaseDBService {
 	}
 	// utilize it for updating when recipe, comment info change
 	getUserById = async (uid) => {
-		if(!uid) return false;
+		if (!uid) return false;
 		let userInfo;
 		const ref = collection(db, 'users');
 		const q = query(ref, where('uid', '==', uid));
@@ -163,55 +163,6 @@ export class FirebaseDBService {
 			userInfo = v.data();
 		});
 		return userInfo;
-	};
-
-	/* createRecipe 
-	 input - recipeData: Object
-	 output - true | error (if error)
-	 des - to add Recipe data into DB with createdAt and UId
-	 */
-	createRecipe = async (recipe, uid) => {
-		const R_id = 'R' + Date.now();
-		recipe['id'] = R_id;
-		recipe['createdAt'] = new Date().toISOString();
-		recipe['updatedAt'] = new Date().toISOString();
-		recipe['owner'] = uid;
-		recipe['rate'] = {
-			score: 0,
-			ratedPeople: 0
-		}
-
-		recipe['comments'] = [];
-
-		// Location of Img: recipe.how_to_make[index].cook_image
-		// Location of Img(thumb): recipe.picture
-		for (let i = 0; i < recipe.how_to_make.length; i++) {
-			const fileList = recipe.how_to_make[i].cook_image;
-			if(!fileList) recipe.how_to_make[i].cook_image = "Demo";
-			else{
-				const imgData = await this.cloudinary.uploadFile(fileList);
-				recipe.how_to_make[i].cook_image = imgData.url;
-			}
-		}
-		// for thumb
-		if(!recipe.picture){
-			recipe.picture = "Demo";
-		}
-		else{
-			const thumbData = await this.cloudinary.uploadFile([recipe.picture]);
-			recipe.picture = thumbData.url;
-		}
-
-		try {
-			await setDoc(doc(db, 'recipes', R_id), recipe);
-			const user = await this.getUserById(uid);
-			// for user Schema, it needs to push R_id into user.recipes.
-			user.recipes.push(R_id);
-			await setDoc(doc(db, 'users', R_id),user);
-			return true;
-		} catch (e) {
-			return e;
-		}
 	};
 
 	getOriginalRecipeDataById = async (id) => {
@@ -242,30 +193,93 @@ export class FirebaseDBService {
 		return recipe;
 	};
 
-	updateRecipe = async (id, recipe) => {
-		const beforeRecipe = await this.getOriginalRecipeDataById(id);
-		if (!beforeRecipe) return false;
+	getSnapShotForAllRecipes = async () => {
+		const ref = collection(db, 'recipes');
+		const q = query(ref, orderBy('createdAt', 'desc'));
+		return await getDocs(q);
+	};
 
-		// update from latest info to past info
-		Object.keys(beforeRecipe).forEach((key) => {
-			if (recipe[key]) beforeRecipe[key] = recipe[key];
+	getAllRecipes = async () => {
+		const recipes = [];
+		const snapshot = await this.getSnapShotForAllRecipes();
+
+		snapshot.forEach((doc) => {
+			recipes.push(doc.data());
 		});
-		beforeRecipe.updatedAt = new Date().toISOString();
+		return recipes;
+	};
 
-		// check if img is changed
-		for (let i = 0; i < beforeRecipe.how_to_make.length; i++) {
-			const fileList = beforeRecipe.how_to_make[i].cook_image;
-			if (typeof fileList !== String) {
+	modifyOwnerToInfo = async (recipes) => {
+		const ownerIdList = [];
+		recipes.forEach((recipe) => {
+			if (!ownerIdList.includes(recipe.owner) && recipe.owner)
+				ownerIdList.push(recipe.owner);
+		});
+		console.log(ownerIdList);
+		const ownerPromises = ownerIdList.map((uid) => {
+			return this.getUserById(uid);
+		});
+		const ownerList = await Promise.all(ownerPromises);
+		// 복잡도 -> recipes * ownerList
+		recipes.forEach((recipe) => {
+			ownerList.forEach((user) => {
+				const { uid, displayName, email, profile } = user;
+				if (user.uid === recipe.owner)
+					recipe.owner = { uid, displayName, email, profile };
+			});
+		});
+	};
+
+	/** MODULES FOR CLIENT  */
+
+	/* createRecipe 
+	 input - recipeData: Object
+	 output - true | error (if error)
+	 des - to add Recipe data into DB with createdAt and UId
+	 */
+	createRecipe = async (recipe, uid) => {
+		const R_id = 'R' + Date.now();
+		recipe['id'] = R_id;
+		recipe['createdAt'] = new Date().toISOString();
+		recipe['updatedAt'] = new Date().toISOString();
+		recipe['owner'] = uid;
+		recipe['rate'] = {
+			score: 0,
+			ratedPeople: 0,
+		};
+
+		recipe['comments'] = [];
+
+		// Location of Img: recipe.how_to_make[index].cook_image
+		// Location of Img(thumb): recipe.picture
+		for (let i = 0; i < recipe.how_to_make.length; i++) {
+			const fileList = recipe.how_to_make[i].cook_image;
+			console.log('fileList: ', fileList);
+			if (!fileList) recipe.how_to_make[i].cook_image = DEFAULT_COOKING_IMG;
+			else {
 				const imgData = await this.cloudinary.uploadFile(fileList);
-				beforeRecipe.how_to_make[i].cook_image = imgData.url;
+				recipe.how_to_make[i].cook_image = imgData.url;
 			}
 		}
-		if(typeof beforeRecipe.picture !== String) {
-			const thumbURL = await this.cloudinary.uploadFile([beforeRecipe.picture]);
-			beforeRecipe.picture = thumbURL;
+		// for thumb
+		if (!recipe.picture) {
+			recipe.picture = DEFAULT_THUMB_IMG;
+		} else {
+			const thumbData = await this.cloudinary.uploadFile([recipe.picture]);
+			recipe.picture = thumbData.url;
 		}
 
-		await setDoc(doc(db, "recipes", id), beforeRecipe);
+		try {
+			console.log(recipe);
+			await setDoc(doc(db, 'recipes', R_id), recipe);
+			const user = await this.getUserById(uid);
+			// for user Schema, it needs to push R_id into user.recipes.
+			user.recipes.push(R_id);
+			await setDoc(doc(db, 'users', R_id), user);
+			return true;
+		} catch (e) {
+			return e;
+		}
 	};
 
 	/* getRecipeByOwner
@@ -284,6 +298,7 @@ export class FirebaseDBService {
 			if (!recipe) return false;
 			else {
 				modifyTimeInRecipe(recipe);
+				this.modifyOwnerToInfo(recipe);
 				return organizeRecipeInPage(recipe, this.recipesPerPage);
 			}
 		} catch (e) {
@@ -292,48 +307,11 @@ export class FirebaseDBService {
 		}
 	};
 
-	deleteRecipeById = async (id) => {
-		await deleteDoc(doc(db, 'recipes', String(id)));
-	};
-
-	getSnapShotForAllRecipes = async () => {
-		const ref = collection(db, 'recipes');
-		const q = query(ref, orderBy('createdAt', 'desc'));
-		return await getDocs(q);
-	};
-
-	getAllRecipes = async () => {
-		const recipes = [];
-		const snapshot = await this.getSnapShotForAllRecipes();
-
-		snapshot.forEach((doc) => {
-			recipes.push(doc.data());
-		});
-		return recipes;
-	};
-
-
-	//
-	modifyOwnerToInfo = async (recipes) => {
-		const ownerIdList = [];
-		const userList = [];
-		recipes.forEach((recipe) => {
-			
-			if (!ownerIdList.includes(recipe.owner) && recipe.owner) ownerIdList.push(recipe.owner);
-		});
-		console.log(ownerIdList);
-		const ownerPromises = ownerIdList.map((uid) => {
-			return this.getUserById(uid);
-		});
-		console.log(ownerPromises);
-		const ownerList = await Promise.all(ownerPromises);
-		console.log(ownerList);
-	};
-
 	// for Main Page -> get all Recipes ordered by createdAt
 	getLatestRecipes = async () => {
 		const allRecipes = await this.getAllRecipes();
 		modifyTimeInRecipe(allRecipes);
+		this.modifyOwnerToInfo(allRecipes);
 		return organizeRecipeInPage(allRecipes, this.recipesPerPage);
 	};
 
@@ -348,9 +326,39 @@ export class FirebaseDBService {
 			if (result) recipes.push(data);
 		});
 		modifyTimeInRecipe(recipes);
+		this.modifyOwnerToInfo(recipes);
 		return organizeRecipeInPage(recipes, this.recipesPerPage);
 	};
 
+	updateRecipe = async (id, recipe) => {
+		const beforeRecipe = await this.getOriginalRecipeDataById(id);
+		if (!beforeRecipe) return false;
+
+		// update from latest info to past info
+		Object.keys(beforeRecipe).forEach((key) => {
+			if (recipe[key]) beforeRecipe[key] = recipe[key];
+		});
+		beforeRecipe.updatedAt = new Date().toISOString();
+
+		// check if img is changed
+		for (let i = 0; i < beforeRecipe.how_to_make.length; i++) {
+			const fileList = beforeRecipe.how_to_make[i].cook_image;
+			if (typeof fileList !== String) {
+				const imgData = await this.cloudinary.uploadFile(fileList);
+				beforeRecipe.how_to_make[i].cook_image = imgData.url;
+			}
+		}
+		if (typeof beforeRecipe.picture !== String) {
+			const thumbURL = await this.cloudinary.uploadFile([beforeRecipe.picture]);
+			beforeRecipe.picture = thumbURL;
+		}
+
+		await setDoc(doc(db, 'recipes', id), beforeRecipe);
+	};
+
+	deleteRecipeById = async (id) => {
+		await deleteDoc(doc(db, 'recipes', String(id)));
+	};
 	// -------------------- test ------------------------------------
 	createRecipe_test = async (file, uid) => {
 		const R_id = 'R' + Date.now();
@@ -365,6 +373,8 @@ export class FirebaseDBService {
 			people: '4',
 			minutes: '123456',
 			level: '최상',
+			cookingTime: 3000,
+			difficulty: 'fucking Hard',
 			ingredients: [
 				{
 					ingredient: '재료 이름 뭐로 하냐',
@@ -390,7 +400,7 @@ export class FirebaseDBService {
 			picture: file?.[0],
 		};
 
-		await this.createRecipe(dummy);
+		await this.createRecipe(dummy, uid);
 		// await setDoc(doc(db, 'recipes', R_id), dummy);
 		// try {
 		// 	const docRef = await addDoc(collection(db, 'users'), dummy);
@@ -419,21 +429,33 @@ export class FirebaseDBService {
 	};
 
 	// ------- comment for internal process ---------
-	getCommentsByWhere = async (commentId, where) => {
-		let result;
+	getCommentsByWhere = async (where) => {
+		let result=[];
 		const commentRef = collection(db, 'comments');
-		const q = query(commentRef, where('id', '==', commentId));
+		const q = query(commentRef,where, orderBy("createdAt", "desc"));
 		const snapshot = await getDocs(q);
 		snapshot.forEach((doc) => {
-			result = doc.data();
+			result.push(doc.data());
 		});
 
-		if (!result) return false;
+		if (result.length === 0) return false;
 
 		return result;
 	};
 
-	// ------- comments MODULE FOR Client -----------
+	getOneCommentById = async (id) => {
+		let result;
+		const ref = collection(db, 'comments');
+		const q = query(ref, where('id', '==', id));
+		const snapshot = await getDocs(q);
+		snapshot.forEach((v) => {
+			result = v.data();
+		});
+		if (!result) return false;
+		else return result;
+	};
+
+	// ------- comments MODULES FOR Client -----------
 
 	createComment = async (userId, recipeId, message) => {
 		const C_id = 'C' + Date.now();
@@ -449,19 +471,15 @@ export class FirebaseDBService {
 	};
 
 	getCommentsByRecipeId = async (recipeId) => {
-		let result;
-		const commentRef = collection(db, 'comments');
-		const q = query(commentRef, where('recipeId', '==', recipeId));
-		const snapshot = await getDocs(q);
-		snapshot.forEach((doc) => {
-			result = doc.data();
-		});
+		const comments = await this.getCommentsByWhere(where('recipeId', '==', recipeId));
+		modifyTimeInComment(comments);
+		console.log(comments);
+		return comments;
+	};
 
-	}
-	
 	// changing comment info and return changed comment data as optimized one.
-	updateComments = async (commentId, message) => {
-		const previous = await this.getOneCommentsById(commentId);
+	updateComment = async (commentId, message) => {
+		const previous = await this.getOneCommentById(commentId);
 		const newComment = {
 			...previous,
 			message,
@@ -469,6 +487,9 @@ export class FirebaseDBService {
 		};
 		await setDoc(doc(db, 'comments', commentId), newComment);
 		// TO DO: return optimized data
+		modifyTimeInComment([newComment]);
+		console.log(newComment);
+		return newComment;
 	};
 
 	deleteCommentById = async (id) => {
