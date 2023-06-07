@@ -17,7 +17,11 @@ import {
 	deleteDoc,
 	orderBy,
 } from 'firebase/firestore';
-import { modifyTimeInComment, modifyTimeInRecipe, organizeRecipeInPage } from './factory';
+import {
+	modifyTimeInComment,
+	modifyTimeInRecipe,
+	organizeRecipeInPage,
+} from './factory';
 import axios from 'axios';
 
 const CLOUD_NAME = 'dfvqmpyji';
@@ -248,7 +252,7 @@ export class FirebaseDBService {
 		recipe['owner'] = uid;
 		recipe['rate'] = {
 			score: 0,
-			ratedPeople: 0,
+			people: 0,
 		};
 
 		recipe['comments'] = [];
@@ -429,9 +433,9 @@ export class FirebaseDBService {
 
 	// ------- comment for internal process ---------
 	getCommentsByWhere = async (where) => {
-		let result=[];
+		let result = [];
 		const commentRef = collection(db, 'comments');
-		const q = query(commentRef,where, orderBy("createdAt", "desc"));
+		const q = query(commentRef, where, orderBy('createdAt', 'desc'));
 		const snapshot = await getDocs(q);
 		snapshot.forEach((doc) => {
 			result.push(doc.data());
@@ -466,11 +470,15 @@ export class FirebaseDBService {
 			createdAt: new Date().toISOString(),
 			updatedAt: new Date().toISOString(),
 		};
-		await setDoc(doc(db, 'comments', C_id), newComment);
+		setDoc(doc(db, 'comments', C_id), newComment);
+		modifyTimeInComment([newComment]);
+		return newComment;
 	};
 
 	getCommentsByRecipeId = async (recipeId) => {
-		const comments = await this.getCommentsByWhere(where('recipeId', '==', recipeId));
+		const comments = await this.getCommentsByWhere(
+			where('recipeId', '==', recipeId)
+		);
 		modifyTimeInComment(comments);
 		console.log(comments);
 		return comments;
@@ -494,7 +502,34 @@ export class FirebaseDBService {
 	deleteCommentById = async (id) => {
 		await deleteDoc(doc(db, 'comments', String(id)));
 	};
+
+	// Module FOR Rating
+	rateRecipe = async (recipeId, userId, score) => {
+		console.log(recipeId, userId, score);
+		const recipe = await this.getOriginalRecipeDataById(recipeId);
+		const user = await this.getUserById(userId);
+		const isRated = Object.keys(user.rated).includes(recipe.id);
+		if (isRated) {
+			const prevScore = user.rated[`${recipe.id}`];
+			const totalScore = recipe.rate.people * recipe.rate.score;
+			recipe.rate.score =
+				(totalScore - prevScore + Number(score)) / recipe.rate.people;
+			user.rated[`${recipe.id}`] = score;
+		} else {
+			user.rated[`${recipe.id}`] = Number(score);
+			let prevTotalScore = recipe.rate.people * recipe.rate.score;
+			prevTotalScore += Number(score);
+			recipe.rate.people++;
+			recipe.rate.score = prevTotalScore / recipe.rate.people;
+		}
+
+		setDoc(doc(db, 'recipes', recipeId), recipe);
+		setDoc(doc(db, 'users', userId), user);
+		console.log(user, recipe);
+	};
 }
+
+// ClodinarySercice -> for saving img source in Cloudinary service *********
 
 export class cloudinaryService {
 	uploadFile = async (files) => {
@@ -518,30 +553,6 @@ export class cloudinaryService {
 
 		return fileRes.data;
 	};
-	
-
-
-	// Module FOR Rating
-	rateRecipe = async (recipeId, userId, score) => {
-		const recipe = await this.getOriginalRecipeDataById(recipeId);
-		const user = await this.getUserById(userId);
-		const isRated = Object.keys(user.rated).includes(recipe.id);
-		if(isRated) {
-			const prevScore = user.rated[`${recipe.id}`];
-			const totalScore = recipe.rate.people * recipe.rate.score;
-			recipe.rate.score = (totalScore - prevScore + Number(score)) / recipe.rate.people;
-		} else {
-			user.rated[`${recipe.id}`] = Number(score);
-			let prevTotalScore = recipe.rate.people * recipe.rate.score;
-			prevTotalScore += Number(score);
-			recipe.rate.people++;
-			recipe.rate.score = prevTotalScore / recipe.rate.people;
-		}
-
-		setDoc(doc(db, "recipes", recipeId), recipe);
-		setDoc(doc(db, "users", userId), user);
-		console.log(user, recipe);
-	}
 }
 
 // NOTE - this Class is for Opensource Class only

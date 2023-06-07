@@ -1,0 +1,27 @@
+// Schema
+
+User: {
+  uid: String,
+  displayName: String,
+  email: String,
+  profile: String,
+  rated: ratingInfo(Object)[],
+  copied: recipeId(String)[]
+}
+* ratingInfo - {recipeId: score(Number)}
+
+Recipe: {
+  id: String,
+  title: String,
+  description: String,
+  level: String,
+  category: String[],
+  createdAt: Stirng,
+  updatedAt: String,
+  picture: String,
+  owner: String,
+  people: String,
+  rate: {people(Number), score(Number)},
+  ingredients: {amount(String), ingredient(String)}[],
+  how_to_make: {cook_image(String), cooking(String), step(Number)}
+}

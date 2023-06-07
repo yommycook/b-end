@@ -25,6 +25,9 @@ export const modifyTime = (ISOString) => {
 
 	switch (timeUnit) {
 		case 'second':
+			if(timeUnit < 1000)
+			relative = `방금 전`;
+			else
 			relative = `${timeGapSec}초 전`;
 			break;
 		case 'minute':
