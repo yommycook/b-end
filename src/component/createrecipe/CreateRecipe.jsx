@@ -238,7 +238,9 @@ const CreateRecipe = ({ Cloudinary, DBService, isLogin }) => {
 	// For interaction with DB, Cloud service
 	const onCreateRecipe = async () => {
 		// for(let i =0; i<50; i++)
-		await DBService.createComment("rkdeofuf", "C1686039386865", "tlqkf whssk glaemfek")
+		// await DBService.createComment("rkdeofuf", "C1686039386865", "tlqkf whssk glaemfek")
+		const recp = await DBService.getRecipesByOwner("SnIigrfmSXOC3TWvYUl7XDzDtei1");
+		console.log(recp);
 		// await DBService.getCommentsByRecipeId( `C1686039386865`);
 		// await DBService.rateRecipe("R1686037077611",isLogin.user.uid, 3.5);
 	}

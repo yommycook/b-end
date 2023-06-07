@@ -293,7 +293,7 @@ export class FirebaseDBService {
 		const recipeRef = collection(db, 'recipes');
 		const q = query(recipeRef, where('owner', '==', ownerId));
 		try {
-			let recipe; // undefined (default)
+			let recipe = []; // undefined (default)
 			const snapshot = await getDocs(q);
 			snapshot.forEach((doc) => {
 				recipe.push(doc.data());
@@ -333,8 +333,8 @@ export class FirebaseDBService {
 		return organizeRecipeInPage(recipes, this.recipesPerPage);
 	};
 
-	updateRecipe = async (id, recipe) => {
-		const beforeRecipe = await this.getOriginalRecipeDataById(id);
+	updateRecipe = async (recipeId, recipe) => {
+		const beforeRecipe = await this.getOriginalRecipeDataById(recipeId);
 		if (!beforeRecipe) return false;
 
 		// update from latest info to past info
@@ -356,11 +356,12 @@ export class FirebaseDBService {
 			beforeRecipe.picture = thumbURL;
 		}
 
-		await setDoc(doc(db, 'recipes', id), beforeRecipe);
+		await setDoc(doc(db, 'recipes', recipeId), beforeRecipe);
+		return true;
 	};
 
-	deleteRecipeById = async (id) => {
-		await deleteDoc(doc(db, 'recipes', String(id)));
+	deleteRecipeById = async (recipeId) => {
+		await deleteDoc(doc(db, 'recipes', String(recipeId)));
 	};
 	// -------------------- test ------------------------------------
 	createRecipe_test = async (file, uid) => {
@@ -470,7 +471,7 @@ export class FirebaseDBService {
 			createdAt: new Date().toISOString(),
 			updatedAt: new Date().toISOString(),
 		};
-		setDoc(doc(db, 'comments', C_id), newComment);
+		setDoc(doc(db, 'comments', C_id), {...newComment});
 		modifyTimeInComment([newComment]);
 		return newComment;
 	};
@@ -492,15 +493,15 @@ export class FirebaseDBService {
 			message,
 			updatedAt: new Date().toISOString(),
 		};
-		await setDoc(doc(db, 'comments', commentId), newComment);
+		await setDoc(doc(db, 'comments', commentId), {...newComment});
 		// TO DO: return optimized data
 		modifyTimeInComment([newComment]);
 		console.log(newComment);
 		return newComment;
 	};
 
-	deleteCommentById = async (id) => {
-		await deleteDoc(doc(db, 'comments', String(id)));
+	deleteCommentById = async (commentId) => {
+		await deleteDoc(doc(db, 'comments', String(commentId)));
 	};
 
 	// Module FOR Rating
@@ -525,7 +526,7 @@ export class FirebaseDBService {
 
 		setDoc(doc(db, 'recipes', recipeId), recipe);
 		setDoc(doc(db, 'users', userId), user);
-		console.log(user, recipe);
+		return { ...recipe.rate };
 	};
 }
 

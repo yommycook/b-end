@@ -1,4 +1,4 @@
-// Schema
+// Schema (DB에 저장되는 스키마, 데이터 형태)
 
 User: {
   uid: String,
@@ -25,3 +25,247 @@ Recipe: {
   ingredients: {amount(String), ingredient(String)}[],
   how_to_make: {cook_image(String), cooking(String), step(Number)}
 }
+
+Comment: {
+  id: String,
+  message: String,
+  recipeId: String,
+  userId: String,
+  createdAt: String,
+  updatedAt: String,
+}
+
+
+************************************************************************************
+Method Interface
+- Recipe
+ createRecipe async (recipe: Object, uid: String): Object{{page, List: Recipe[]},{page, List: Recipe[]}}
+ getLatestRecipes async (): Object{{page, List: Recipe[]},{page, List: Recipe[]}}
+ getRecipeByOwner async (ownerId: String): Object{{page, List: Recipe[]},{page, List: Recipe[]}}
+ getRecipeByKeyword async (keyword: String): Object{{page, List: Recipe[]},{page, List: Recipe[]}}
+ updateRecipe async (recipeId: String, recipe: Object): Boolean
+ deleteRecipeById = async (recipeId: String): void
+ rateRecipe async (recipeId: String, userId: String, score: Number): Rate
+
+- Comment
+  createComment = async (userId: String, recipeId: String, message: String): Comment
+  updateComment = async (commentId: String, message: String): Comment
+  getCommentsByRecipeId = async (recipeId: String): Comment[]
+  deleteCommentById = async (commentId: String): void
+
+
+
+
+
+************************************************************************************
+Funciton Name: createRecipe async (recipe: Object, uid: String)
+description: recipe정보와 ownerId를 받아와 레시피 생성
+             recipe 정보중에 file을 저장하는데,
+              -> recipe.how_to_make.cook_image 속성은 fileList([file]) 이어야 하고
+              -> recipe.picture 속성은 file객체여야 함.             
+Input: recipe(object), uid(String)
+Output: true (레시피 생성 성공시)
+
+
+************************************************************************************
+Funciton Name: getLatestRecipes async ()
+description: 모든 recipe정보를 최신순으로 정렬, 페이징해서 리턴    
+Input: x
+Output: recipes(Object)
+** Output Example **
+{
+  0: {
+    page: 0,
+    list: Array(10)
+  },
+    1: {
+     page: 1,
+     list: Array(5)
+  }
+}
+
+** list 안에는 Recipe Schema 정보 그대로 담겨 있는데
+   createdAt, updatedAt, owner 정보가 상세 정보로 되어있음
+
+- createdAt, updatedAt Example - 
+createdAt: {absolute: "2022. 04. 01", relative: "1년 전"}
+
+- owner Example - 
+owner: {
+  displayName: "강대렬"
+  email: "kdy0510123@gmail.com"
+  profile: "https://lh3.googleusercontent.com/a/AGNmyxb4JnomO-LE8sjZHEw_CugMa40vaCNoDRiOmmV5=s96-c"
+  uid: "SnIigrfmSXOC3TWvYUl7XDzDtei1"
+}
+
+
+
+
+************************************************************************************
+Funciton Name: getRecipeByOwner async (ownerId: String)
+description: ownerId를 받아와 해당 사용자의 레시피 정보를 페이징 해서 리턴
+             한 페이지당 몇 개의 레시피 정보를 담을 건지는 설정 가능 (default 10개 씩 저장)
+Input: ownerId(String)
+Output: Recipes(Object)
+** Output Example **
+{
+  0: {
+    page: 0,
+    list: Array(10)
+  },
+    1: {
+     page: 1,
+     list: Array(5)
+  }
+}
+
+** list 안에는 Recipe Schema 정보 그대로 담겨 있는데
+   createdAt, updatedAt, owner 정보가 상세 정보로 되어있음
+
+- createdAt, updatedAt example - 
+createdAt: {absolute: "2022. 04. 01", relative: "1년 전"}
+
+- owner example - 
+owner: {
+  displayName: "강대렬"
+  email: "kdy0510123@gmail.com"
+  profile: "https://lh3.googleusercontent.com/a/AGNmyxb4JnomO-LE8sjZHEw_CugMa40vaCNoDRiOmmV5=s96-c"
+  uid: "SnIigrfmSXOC3TWvYUl7XDzDtei1"
+}
+
+
+************************************************************************************
+Funciton Name: getRecipeByKeyword async (keyword: String)
+description: 검색어(keyword)를 받아와 검색 후 검색 결과 리턴
+Input: keyword(String)
+Output: Recipes(Object)
+** Output Example **
+{
+  0: {
+    page: 0,
+    list: Array(10)
+  },
+    1: {
+     page: 1,
+     list: Array(5)
+  }
+}
+
+** list 안에는 Recipe Schema 정보 그대로 담겨 있는데
+   createdAt, updatedAt, owner 정보가 상세 정보로 되어있음
+
+- createdAt, updatedAt example - 
+createdAt: {absolute: "2022. 04. 01", relative: "1년 전"}
+
+- owner example - 
+owner: {
+  displayName: "강대렬"
+  email: "kdy0510123@gmail.com"
+  profile: "https://lh3.googleusercontent.com/a/AGNmyxb4JnomO-LE8sjZHEw_CugMa40vaCNoDRiOmmV5=s96-c"
+  uid: "SnIigrfmSXOC3TWvYUl7XDzDtei1"
+}
+
+************************************************************************************
+Funciton Name: updateRecipe async (recipeId: String, recipe: Object)
+description: 레시피 정보를 수정함
+Input: recipeId(String), recipe(Object)  // recipe 정보는 기존 createRecipe와 동일
+Output: true(수정 성공시)
+
+************************************************************************************
+Funciton Name: rateRecipe async (recipeId: String, userId: String, score: Number)
+description: 레시피 평가(rating)함, 수정(update) 할 때도 같이 사용함
+Input: recipeId: String, userId: String, score: Number
+Output: rate(object)
+
+- rate Example - 
+rate: {
+  people: 3123,   // Number
+  rate: 3.25      // Number
+}
+
+************************************************************************************
+Funciton Name: deleteRecipeById = async (recipeId: String)
+description: 받은 레시피 아이디에 해당하는 레시피 정볻 삭제
+Input: recipeId: String
+Output: x
+
+
+
+
+
+
+*********************************** Comment Methods *************************************************
+
+************************************************************************************
+Funciton Name: createComment = async (userId: String, recipeId: String, message: String)
+description: 코멘트 생성 후 생성된 코멘트 데이터 반환
+Input: userId: String, recipeId: String, message: String
+Output: comment(Object)
+
+- comment Example - 
+comment: {
+  id: "C1685428311955"
+  userId: "Reijdqijdoi23j1i10di1jd09j"
+  recipeId: "R123456"
+  message: "tlqkf whssk glaemfek"
+  createdAt: {absolute: "2022. 04. 01", relative: "1년 전"}
+  updatedAt: "{absolute: "2022. 04. 01", relative: "1년 전"}
+}
+
+************************************************************************************
+Funciton Name: updateComment = async (commentId: String, message: String)
+description: 기존 코멘트 내용 변경 후 변경 된 데이터 반환
+Input: commentId: String, message: String
+Output: comment(Object)
+
+- comment Example - 
+comment: {
+  id: "C1685428311955"
+  userId: "Reijdqijdoi23j1i10di1jd09j"
+  recipeId: "R123456"
+  message: "tlqkf whssk glaemfek"
+  createdAt: {absolute: "2022. 04. 01", relative: "1년 전"}
+  updatedAt: "{absolute: "2022. 04. 01", relative: "1년 전"}
+}
+
+************************************************************************************
+Funciton Name: getCommentsByRecipeId = async (recipeId: String)
+description: 해당 레시피 정보에 대한 댓글 모두 최신순으로 반환
+Input: recipeId(String)
+Output: comments(Object)[]
+
+- comments Example - 
+[
+  {
+  id: "C1685428311955"
+  userId: "Reijdqijdoi23j1i10di1jd09j"
+  recipeId: "R123456"
+  message: "tlqkf whssk glaemfek"
+  createdAt: {absolute: "2022. 04. 01", relative: "1년 전"}
+  updatedAt: "{absolute: "2022. 04. 01", relative: "1년 전"}
+},
+{
+  id: "C1685428311955"
+  userId: "Reijdqijdoi23j1i10di1jd09j"
+  recipeId: "R123456"
+  message: "tlqkf whssk glaemfek"
+  createdAt: {absolute: "2022. 04. 01", relative: "1년 전"}
+  updatedAt: "{absolute: "2022. 04. 01", relative: "1년 전"}
+},
+{
+  id: "C1685428311955"
+  userId: "Reijdqijdoi23j1i10di1jd09j"
+  recipeId: "R123456"
+  message: "tlqkf whssk glaemfek"
+  createdAt: {absolute: "2022. 04. 01", relative: "1년 전"}
+  updatedAt: "{absolute: "2022. 04. 01", relative: "1년 전"}
+},
+ ... 
+  ] // 이런식으로 comment 배열 형태로 반환함
+
+
+************************************************************************************
+Funciton Name: deleteCommentById = async (commentId: String)
+description: 해당 코멘트 정보 삭제
+Input: commentId(String)
+Output: x
