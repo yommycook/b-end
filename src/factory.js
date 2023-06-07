@@ -25,6 +25,9 @@ export const modifyTime = (ISOString) => {
 
 	switch (timeUnit) {
 		case 'second':
+			if(timeUnit < 1000)
+			relative = `방금 전`;
+			else
 			relative = `${timeGapSec}초 전`;
 			break;
 		case 'minute':
@@ -53,10 +56,20 @@ export const modifyTime = (ISOString) => {
 	};
 };
 
+
+// Method - modyfyTimeInComment / Recipe
+// change ISOString of Time into format for client
+export const modifyTimeInComment = (comments) => {
+	for (let i = 0; i < comments.length; i++) {
+		comments[i].createdAt = modifyTime(comments[i].createdAt);
+		comments[i].updatedAt = modifyTime(comments[i].updatedAt);
+	}
+}
+
 export const modifyTimeInRecipe = (recipes) => {
-	// change ISOString of Time into format for client
 	for (let i = 0; i < recipes.length; i++) {
 		recipes[i].createdAt = modifyTime(recipes[i].createdAt);
+		recipes[i].updatedAt = modifyTime(recipes[i].updatedAt);
 	}
 };
 

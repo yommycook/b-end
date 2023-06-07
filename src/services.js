@@ -10,7 +10,6 @@ import {
 	getFirestore,
 	doc,
 	setDoc,
-	addDoc,
 	collection,
 	query,
 	where,
@@ -18,8 +17,12 @@ import {
 	deleteDoc,
 	orderBy,
 } from 'firebase/firestore';
-import { modifyTimeInRecipe, organizeRecipeInPage } from './factory';
-import axios, { all } from 'axios';
+import {
+	modifyTimeInComment,
+	modifyTimeInRecipe,
+	organizeRecipeInPage,
+} from './factory';
+import axios from 'axios';
 
 const CLOUD_NAME = 'dfvqmpyji';
 const UPLOAD_PRESET = 'qzlqkpry';
@@ -38,6 +41,9 @@ const firebaseConfig = {
 	databaseURL: `https://${process.env.REACT_APP_PROJECT_ID}-default-rtdb.asia-southeast1.firebasedatabase.app`,
 };
 
+const DEFAULT_COOKING_IMG = 'default_cooking_img';
+const DEFAULT_THUMB_IMG = 'default_thumg_img';
+
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
 
@@ -45,22 +51,41 @@ const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
 export class FirebaseService {
-	checkLoginState = (setLoginState) => {
+	checkLoginState = (setLogin) => {
 		const myAuth = getAuth();
 		onAuthStateChanged(myAuth, (user) => {
-			console.log('check Login', user);
-			if (user) {
-				const { uid, email, photoURL } = user;
-				setLoginState({
-					state: true,
-					user: {
-						uid,
-						email,
-						profile: photoURL,
-					},
+			if (!user) {
+				return this.signOut();
+			} else {
+				this.getUserById(user.uid).then((result) => {
+					return setLogin({
+						state: true,
+						user: result,
+					});
 				});
 			}
 		});
+	};
+
+	// check If account exists
+	getUserById = async (uid) => {
+		let userInfo;
+		const ref = collection(db, 'users');
+		const q = query(ref, where('uid', '==', uid));
+		const snapshot = await getDocs(q);
+		snapshot.forEach((v) => {
+			userInfo = v.data();
+		});
+		return userInfo;
+	};
+
+	createUser = async (info) => {
+		try {
+			await setDoc(doc(db, 'users', info.uid), info);
+			return true;
+		} catch (e) {
+			return e;
+		}
 	};
 
 	onLogin = async () => {
@@ -72,10 +97,29 @@ export class FirebaseService {
 			const credential = GoogleAuthProvider.credentialFromResult(result);
 			const token = credential.accessToken;
 			// The signed-in user info.
-			const user = result.user;
+			const { uid, email, photoURL, displayName } = result.user;
+
+			const user = {
+				uid,
+				email,
+				profile: photoURL,
+				displayName,
+				rated: {
+					// recipeId: score(Number)
+				},
+				copied: [
+					// recipeId
+				],
+			};
+			// Definition Of User Schema
+			// Check -> if user info exists already
+			const userInfoFromDB = await this.getUserById(user.uid);
+			if (!userInfoFromDB) {
+				await this.createUser(user);
+			}
+
 			return {
 				type: 'success',
-				token,
 				user,
 			};
 		} catch (error) {
@@ -115,32 +159,19 @@ export class FirebaseDBService {
 		this.cloudinary = cloudinary;
 		this.recipesPerPage = 10;
 	}
-	/* createRecipe 
-	 input - recipeData: Object
-	 output - true | error (if error)
-	 des - to add Recipe data into DB with createdAt and UId
-	 */
-	createRecipe = async (recipe) => {
-		const R_id = 'R' + Date.now();
-		recipe['id'] = R_id;
-		recipe['createdAt'] = new Date().toISOString();
-		recipe['updatedAt'] = new Date().toISOString();
-
-		// Location of Img: recipe.how_to_make[index].cook_image
-		for (let i = 0; i < recipe.how_to_make.length; i++) {
-			const fileList = recipe.how_to_make[i].cook_image;
-			const imgData = await this.cloudinary.uploadFile(fileList);
-			recipe.how_to_make[i].cook_image = imgData.url;
-		}
-
-		try {
-			await setDoc(doc(db, 'recipes', R_id), recipe);
-			return true;
-		} catch (e) {
-			return e;
-		}
+	// utilize it for updating when recipe, comment info change
+	getUserById = async (uid) => {
+		if (!uid) return false;
+		let userInfo;
+		const ref = collection(db, 'users');
+		const q = query(ref, where('uid', '==', uid));
+		const snapshot = await getDocs(q);
+		snapshot.forEach((v) => {
+			userInfo = v.data();
+		});
+		return userInfo;
 	};
-	
+
 	getOriginalRecipeDataById = async (id) => {
 		const recipeRef = collection(db, 'recipes');
 		const q = query(recipeRef, where('id', '==', id));
@@ -157,20 +188,153 @@ export class FirebaseDBService {
 			return false;
 		}
 	};
-	
+
 	/* getRecipeDataById
 		input - id: String
 		output - recipe: Object | false (if not founded)
 	*/
 	getRecipeById = async (id) => {
 		const recipe = await this.getOriginalRecipeDataById(id);
-		if(!recipe) return false;
+		if (!recipe) return false;
 		modifyTimeInRecipe(recipe);
 		return recipe;
-	}
+	};
 
-	updateRecipe = async (id, recipe) => {
-		const beforeRecipe = await this.getOriginalRecipeDataById(id);
+	getSnapShotForAllRecipes = async () => {
+		const ref = collection(db, 'recipes');
+		const q = query(ref, orderBy('createdAt', 'desc'));
+		return await getDocs(q);
+	};
+
+	getAllRecipes = async () => {
+		const recipes = [];
+		const snapshot = await this.getSnapShotForAllRecipes();
+
+		snapshot.forEach((doc) => {
+			recipes.push(doc.data());
+		});
+		return recipes;
+	};
+
+	modifyOwnerToInfo = async (recipes) => {
+		const ownerIdList = [];
+		recipes.forEach((recipe) => {
+			if (!ownerIdList.includes(recipe.owner) && recipe.owner)
+				ownerIdList.push(recipe.owner);
+		});
+		console.log(ownerIdList);
+		const ownerPromises = ownerIdList.map((uid) => {
+			return this.getUserById(uid);
+		});
+		const ownerList = await Promise.all(ownerPromises);
+		// 복잡도 -> recipes * ownerList
+		recipes.forEach((recipe) => {
+			ownerList.forEach((user) => {
+				const { uid, displayName, email, profile } = user;
+				if (user.uid === recipe.owner)
+					recipe.owner = { uid, displayName, email, profile };
+			});
+		});
+	};
+
+	/** MODULES FOR CLIENT  */
+
+	/* createRecipe 
+	 input - recipeData: Object
+	 output - true | error (if error)
+	 des - to add Recipe data into DB with createdAt and UId
+	 */
+	createRecipe = async (recipe, uid) => {
+		const R_id = 'R' + Date.now();
+		recipe['id'] = R_id;
+		recipe['createdAt'] = new Date().toISOString();
+		recipe['updatedAt'] = new Date().toISOString();
+		recipe['owner'] = uid;
+		recipe['rate'] = {
+			score: 0,
+			people: 0,
+		};
+
+		recipe['comments'] = [];
+
+		// Location of Img: recipe.how_to_make[index].cook_image
+		// Location of Img(thumb): recipe.picture
+		for (let i = 0; i < recipe.how_to_make.length; i++) {
+			const fileList = recipe.how_to_make[i].cook_image;
+			console.log('fileList: ', fileList);
+			if (!fileList) recipe.how_to_make[i].cook_image = DEFAULT_COOKING_IMG;
+			else {
+				const imgData = await this.cloudinary.uploadFile(fileList);
+				recipe.how_to_make[i].cook_image = imgData.url;
+			}
+		}
+		// for thumb
+		if (!recipe.picture) {
+			recipe.picture = DEFAULT_THUMB_IMG;
+		} else {
+			const thumbData = await this.cloudinary.uploadFile([recipe.picture]);
+			recipe.picture = thumbData.url;
+		}
+
+		try {
+			console.log(recipe);
+			await setDoc(doc(db, 'recipes', R_id), recipe);
+			return true;
+		} catch (e) {
+			return e;
+		}
+	};
+
+	/* getRecipeByOwner
+		input - id: String
+		output - recipes: Array[recipe] | false (if not founded)
+	*/
+	getRecipesByOwner = async (ownerId) => {
+		const recipeRef = collection(db, 'recipes');
+		const q = query(recipeRef, where('owner', '==', ownerId));
+		try {
+			let recipe = []; // undefined (default)
+			const snapshot = await getDocs(q);
+			snapshot.forEach((doc) => {
+				recipe.push(doc.data());
+			});
+			if (!recipe) return false;
+			else {
+				modifyTimeInRecipe(recipe);
+				this.modifyOwnerToInfo(recipe);
+				return organizeRecipeInPage(recipe, this.recipesPerPage);
+			}
+		} catch (e) {
+			console.log(e);
+			return false;
+		}
+	};
+
+	// for Main Page -> get all Recipes ordered by createdAt
+	getLatestRecipes = async () => {
+		const allRecipes = await this.getAllRecipes();
+		modifyTimeInRecipe(allRecipes);
+		this.modifyOwnerToInfo(allRecipes);
+		return organizeRecipeInPage(allRecipes, this.recipesPerPage);
+	};
+
+	// In general, it will return recipes as <List> paged with descend sorting
+	getRecipesByKeyword = async (keyword) => {
+		const recipes = [];
+		const keywords = keyword.split(' ');
+		const snapshot = await this.getSnapShotForAllRecipes();
+		snapshot.forEach((doc) => {
+			const data = doc.data();
+			const result = keywords.some((keyword) => data.title?.includes(keyword));
+			if (result) recipes.push(data);
+		});
+		modifyTimeInRecipe(recipes);
+		this.modifyOwnerToInfo(recipes);
+		return organizeRecipeInPage(recipes, this.recipesPerPage);
+	};
+
+	updateRecipe = async (recipeId, recipe) => {
+		const beforeRecipe = await this.getOriginalRecipeDataById(recipeId);
 		if (!beforeRecipe) return false;
 
 		// update from latest info to past info
@@ -187,87 +351,34 @@ export class FirebaseDBService {
 				beforeRecipe.how_to_make[i].cook_image = imgData.url;
 			}
 		}
-	};
-
-	/* getRecipeByOwner
-		input - id: String
-		output - recipes: Array[recipe] | false (if not founded)
-	*/
-	getRecipesByOwner = async (ownerId) => {
-		const recipeRef = collection(db, 'recipes');
-		const q = query(recipeRef, where('owner', '==', ownerId));
-		try {
-			let recipe; // undefined (default)
-			const snapshot = await getDocs(q);
-			snapshot.forEach((doc) => {
-				recipe = doc.data();
-			});
-			if (!recipe) return false;
-			else {
-				modifyTimeInRecipe(recipe);
-				return organizeRecipeInPage(recipe, this.recipesPerPage);
-			}
-		} catch (e) {
-			console.log(e);
-			return false;
+		if (typeof beforeRecipe.picture !== String) {
+			const thumbURL = await this.cloudinary.uploadFile([beforeRecipe.picture]);
+			beforeRecipe.picture = thumbURL;
 		}
+
+		await setDoc(doc(db, 'recipes', recipeId), beforeRecipe);
+		return true;
 	};
 
-	deleteRecipeById = async (id) => {
-		await deleteDoc(doc(db, 'recipes', String(id)));
+	deleteRecipeById = async (recipeId) => {
+		await deleteDoc(doc(db, 'recipes', String(recipeId)));
 	};
-
-	getSnapShotForAllRecipes = async () => {
-		const ref = collection(db, 'recipes');
-		const q = query(ref, orderBy('createdAt', 'desc'));
-		return await getDocs(q);
-	};
-
-	// for Main Page -> get all Recipes ordered by createdAt
-	getAllRecipes = async () => {
-		const recipes = [];
-		const snapshot = await this.getSnapShotForAllRecipes();
-
-		snapshot.forEach((doc) => {
-			recipes.push(doc.data());
-		});
-		return recipes;
-	};
-
-	getLatestRecipes = async () => {
-		const allRecipes = await this.getAllRecipes();
-		modifyTimeInRecipe(allRecipes);
-		return organizeRecipeInPage(allRecipes, this.recipesPerPage);
-	};
-
-	// In general, it will return recipes as <List> paged with descend sorting
-	getRecipesByKeyword = async (keyword) => {
-		const recipes = [];
-		const keywords = keyword.split(' ');
-		const snapshot = await this.getSnapShotForAllRecipes();
-		snapshot.forEach((doc) => {
-			const data = doc.data();
-			const result = keywords.some((keyword) => data.title?.includes(keyword));
-			if (result) recipes.push(data);
-		});
-		modifyTimeInRecipe(recipes);
-		return organizeRecipeInPage(recipes, this.recipesPerPage);
-	};
-
 	// -------------------- test ------------------------------------
-	createRecipe_test = async () => {
+	createRecipe_test = async (file, uid) => {
 		const R_id = 'R' + Date.now();
 		const dummy = {
 			id: R_id,
 			createdAt: new Date().toISOString(),
 			updatedAt: new Date().toISOString(),
 			title: 'title 나는 김 한 율 이다',
-			owner: 'rkdeofuf',
+			owner: uid,
 			description: 'des 나는 이 진 이 다',
 			category: ['강대렬', '김현수', '이진이', '김한율'],
 			people: '4',
 			minutes: '123456',
 			level: '최상',
+			cookingTime: 3000,
+			difficulty: 'fucking Hard',
 			ingredients: [
 				{
 					ingredient: '재료 이름 뭐로 하냐',
@@ -282,17 +393,19 @@ export class FirebaseDBService {
 				{
 					step: 1,
 					cooking: '쿠킹입니다잉',
-					cook_image: 'cooking_image_url',
+					cook_image: file,
 				},
 				{
 					step: 2,
 					cooking: '쿠킹 2입니다잉',
-					cook_image: 'cooking_image_url',
+					cook_image: file,
 				},
 			],
+			picture: file?.[0],
 		};
 
-		await setDoc(doc(db, 'recipes', R_id), dummy);
+		await this.createRecipe(dummy, uid);
+		// await setDoc(doc(db, 'recipes', R_id), dummy);
 		// try {
 		// 	const docRef = await addDoc(collection(db, 'users'), dummy);
 
@@ -300,12 +413,12 @@ export class FirebaseDBService {
 		// } catch (e) {
 		// 	console.error('Error adding document: ', e);
 		// }
-		for (let i = 0; i < dummy.how_to_make.length; i++) {
-			const fileList = dummy.how_to_make[i].cook_image;
-			console.log(fileList);
-			// const imgData = await this.cloudinary.uploadFile(fileList);
-			// recipe.how_to_make[i].cook_image = imgData.url;
-		}
+		// for (let i = 0; i < dummy.how_to_make.length; i++) {
+		// 	const fileList = dummy.how_to_make[i].cook_image;
+		// 	console.log(fileList);
+		// const imgData = await this.cloudinary.uploadFile(fileList);
+		// recipe.how_to_make[i].cook_image = imgData.url;
+		// }
 	};
 	// -------------------- test ------------------------------------
 
@@ -318,12 +431,112 @@ export class FirebaseDBService {
 			console.log('id: ', doc.id, 'data: ', doc.data());
 		});
 	};
+
+	// ------- comment for internal process ---------
+	getCommentsByWhere = async (where) => {
+		let result = [];
+		const commentRef = collection(db, 'comments');
+		const q = query(commentRef, where, orderBy('createdAt', 'desc'));
+		const snapshot = await getDocs(q);
+		snapshot.forEach((doc) => {
+			result.push(doc.data());
+		});
+
+		if (result.length === 0) return false;
+
+		return result;
+	};
+
+	getOneCommentById = async (id) => {
+		let result;
+		const ref = collection(db, 'comments');
+		const q = query(ref, where('id', '==', id));
+		const snapshot = await getDocs(q);
+		snapshot.forEach((v) => {
+			result = v.data();
+		});
+		if (!result) return false;
+		else return result;
+	};
+
+	// ------- comments MODULES FOR Client -----------
+
+	createComment = async (userId, recipeId, message) => {
+		const C_id = 'C' + Date.now();
+		const newComment = {
+			id: C_id,
+			userId,
+			recipeId,
+			message,
+			createdAt: new Date().toISOString(),
+			updatedAt: new Date().toISOString(),
+		};
+		setDoc(doc(db, 'comments', C_id), {...newComment});
+		modifyTimeInComment([newComment]);
+		return newComment;
+	};
+
+	getCommentsByRecipeId = async (recipeId) => {
+		const comments = await this.getCommentsByWhere(
+			where('recipeId', '==', recipeId)
+		);
+		modifyTimeInComment(comments);
+		console.log(comments);
+		return comments;
+	};
+
+	// changing comment info and return changed comment data as optimized one.
+	updateComment = async (commentId, message) => {
+		const previous = await this.getOneCommentById(commentId);
+		const newComment = {
+			...previous,
+			message,
+			updatedAt: new Date().toISOString(),
+		};
+		await setDoc(doc(db, 'comments', commentId), {...newComment});
+		// TO DO: return optimized data
+		modifyTimeInComment([newComment]);
+		console.log(newComment);
+		return newComment;
+	};
+
+	deleteCommentById = async (commentId) => {
+		await deleteDoc(doc(db, 'comments', String(commentId)));
+	};
+
+	// Module FOR Rating
+	rateRecipe = async (recipeId, userId, score) => {
+		console.log(recipeId, userId, score);
+		const recipe = await this.getOriginalRecipeDataById(recipeId);
+		const user = await this.getUserById(userId);
+		const isRated = Object.keys(user.rated).includes(recipe.id);
+		if (isRated) {
+			const prevScore = user.rated[`${recipe.id}`];
+			const totalScore = recipe.rate.people * recipe.rate.score;
+			recipe.rate.score =
+				(totalScore - prevScore + Number(score)) / recipe.rate.people;
+			user.rated[`${recipe.id}`] = score;
+		} else {
+			user.rated[`${recipe.id}`] = Number(score);
+			let prevTotalScore = recipe.rate.people * recipe.rate.score;
+			prevTotalScore += Number(score);
+			recipe.rate.people++;
+			recipe.rate.score = prevTotalScore / recipe.rate.people;
+		}
+
+		setDoc(doc(db, 'recipes', recipeId), recipe);
+		setDoc(doc(db, 'users', userId), user);
+		return { ...recipe.rate };
+	};
 }
+
+// ClodinarySercice -> for saving img source in Cloudinary service *********
 
 export class cloudinaryService {
 	uploadFile = async (files) => {
 		const formdata = new FormData();
 
+		console.log(files);
 		for (let i = 0; i < files.length; i++) {
 			let file = files[i];
 			formdata.append('file', file);

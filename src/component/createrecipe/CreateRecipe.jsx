@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import Styles from './createrecipe.module.css';
 
-const Order = ({ step, des, picture, onInput, Cloudinary }) => {
+const Order = ({ step, des, picture, onInput, Cloudinary, setFile}) => {
 	const [loading, setLoading] = useState(false);
 	const desRef = useRef();
 	const pictureRef = useRef();
@@ -30,6 +30,7 @@ const Order = ({ step, des, picture, onInput, Cloudinary }) => {
 		// console.log(pictureUrl);
 		// onFileChange(e)
 		onPictureChange(pictureUrl);
+		setFile(files);
 		setLoading(false);
 	};
 
@@ -102,7 +103,7 @@ const Ing = ({ index, onInput, name, unit }) => {
 };
 
 // CreateRecipe
-const CreateRecipe = ({ Cloudinary, DBService }) => {
+const CreateRecipe = ({ Cloudinary, DBService, isLogin }) => {
 
 	// useRef -> 레시피 input정보 참조
 	const titleRef = useRef();
@@ -111,6 +112,8 @@ const CreateRecipe = ({ Cloudinary, DBService }) => {
 	const categoryRefCir = useRef();
 	const categoryRefWay = useRef();
 	const categoryRefIng = useRef();
+	const [file, setFile] = useState("");
+	
 
 	// useState -> 레시피 기록 정보 저장
 	const [overview, setOverview] = useState({
@@ -234,15 +237,22 @@ const CreateRecipe = ({ Cloudinary, DBService }) => {
 
 	// For interaction with DB, Cloud service
 	const onCreateRecipe = async () => {
-		// for(let i =0; i< 30; i++)
-		await DBService.createRecipe_test();
+		// for(let i =0; i<50; i++)
+		// await DBService.createComment("rkdeofuf", "C1686039386865", "tlqkf whssk glaemfek")
+		const recp = await DBService.getRecipesByOwner("SnIigrfmSXOC3TWvYUl7XDzDtei1");
+		console.log(recp);
+		// await DBService.getCommentsByRecipeId( `C1686039386865`);
+		// await DBService.rateRecipe("R1686037077611",isLogin.user.uid, 3.5);
 	}
 
 	const onDeleteClick = async () => {
 		// await DBService.deleteRecipe('R1684409592182');
 		// const recipes = await DBService.getRecipeByOwner("rkdeofuf");
 		// await DBService.getLatestRecipes();
-		await DBService.getRecipesByKeyword("나는 김 한 율이다");
+		// await DBService.getRecipesByKeyword("나는 김 한 율이다");
+		const recipes = await DBService.getAllRecipes();
+		console.log(recipes);
+		await DBService.modifyOwnerToInfo(recipes);
 	}
 
 	return (
@@ -370,6 +380,7 @@ const CreateRecipe = ({ Cloudinary, DBService }) => {
 								picture={picture}
 								onInput={onOrderInput}
 								Cloudinary={Cloudinary}
+								setFile={setFile}
 							/>
 						);
 					})}
